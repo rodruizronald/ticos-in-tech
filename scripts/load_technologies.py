@@ -8,13 +8,13 @@ including programming languages, frameworks, databases, etc.
 import asyncio
 import logging
 import os
+from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Tuple
 
 # Add the project root directory to the Python path
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
-)
+project_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
+
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -24,6 +24,7 @@ from src.infrastructure.database.models.technology import Technology
 from src.infrastructure.database.repositories.technology import (
     TechnologyAsyncRepository,
 )
+
 
 # Configure logging
 logging.basicConfig(
