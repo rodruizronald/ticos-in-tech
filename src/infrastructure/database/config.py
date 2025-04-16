@@ -6,28 +6,30 @@ including connection string generation and session management.
 """
 
 import os
+from pathlib import Path
 from typing import AsyncGenerator, Generator, Optional
 
+
 from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 from sqlalchemy.orm import Session, sessionmaker
 
+
+# Load environment variables from .env file
+env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 # Default connection parameters
 DEFAULT_DB_HOST = "localhost"
 DEFAULT_DB_PORT = "5432"
 DEFAULT_DB_USER = "postgres"
 DEFAULT_DB_PASSWORD = "postgres"
-DEFAULT_DB_NAME = "jobboard"
+DEFAULT_DB_NAME = "postgres"
 
 
 def get_postgres_uri(async_: bool = False) -> str:
