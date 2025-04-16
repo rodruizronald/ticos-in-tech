@@ -10,7 +10,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from langchain.llms import BaseLLM
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate
 

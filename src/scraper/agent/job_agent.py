@@ -5,12 +5,10 @@ This module provides a job agent class that orchestrates the scraping and
 processing of job listings from company career websites.
 """
 
-import asyncio
 import logging
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any
 
 from langchain.llms import BaseLLM
-from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate
 

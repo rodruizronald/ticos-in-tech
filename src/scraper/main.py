@@ -8,7 +8,6 @@ automation agent.
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from typing import Dict, Any
 

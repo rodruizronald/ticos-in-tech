@@ -5,9 +5,9 @@ This module provides configuration settings for the scraper, browser,
 and AI components of the job search automation agent.
 """
 
-from typing import Dict, List, Optional
-import os
-from pydantic import BaseSettings, Field
+from typing import List
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class ScraperSettings(BaseSettings):
