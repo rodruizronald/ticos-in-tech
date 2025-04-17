@@ -10,7 +10,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from langchain.llms import BaseLLM
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate
 
@@ -40,7 +40,7 @@ class TechnologyExtractor:
             llm: Language model to use for extraction, or None to use the default
         """
         self.technology_repository = technology_repository
-        self.llm = llm or ChatOpenAI(temperature=0, model_name="o4-mini")
+        self.llm = llm or ChatOpenAI(model_name="o4-mini")
 
         # Cache of technology names to IDs for faster lookups
         self._technology_cache: Dict[str, int] = {}

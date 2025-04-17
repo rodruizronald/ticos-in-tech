@@ -8,9 +8,10 @@ automation agent.
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 import sys
 from typing import Dict, Any
-
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -23,10 +24,14 @@ from src.infrastructure.database.repositories.technology import (
 from src.scraper.agent.job_agent import JobAgent
 from src.scraper.utils.logging import setup_logging
 
+# Load environment variables from .env file
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 logger = logging.getLogger(__name__)
 
 
-async def run_agent(args: argparse.Namespace) -> Dict[str, Any]:
+async def run_agent() -> Dict[str, Any]:
     """
     Run the job search automation agent.
 
@@ -71,11 +76,6 @@ def main() -> None:
         default=None,
         help="Set the logging level",
     )
-    parser.add_argument(
-        "--company",
-        type=str,
-        help="Process only the specified company (by name)",
-    )
     args = parser.parse_args()
 
     # Set up logging
@@ -84,7 +84,7 @@ def main() -> None:
     # Run the agent
     try:
         logger.info("Starting job search automation agent")
-        stats = asyncio.run(run_agent(args))
+        stats = asyncio.run(run_agent())
         logger.info(f"Job search automation agent completed: {stats}")
     except KeyboardInterrupt:
         logger.info("Job search automation agent interrupted")

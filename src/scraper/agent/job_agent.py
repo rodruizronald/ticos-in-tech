@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Optional, Tuple, Any
 
 from langchain.llms import BaseLLM
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate
 
@@ -53,7 +53,7 @@ class JobAgent:
         self.company_repository = company_repository
         self.job_repository = job_repository
         self.technology_repository = technology_repository
-        self.llm = llm or ChatOpenAI(temperature=0, model_name="o4-mini")
+        self.llm = llm or ChatOpenAI(model_name="o4-mini")
 
         # Create processor instances
         self.technology_extractor = TechnologyExtractor(
