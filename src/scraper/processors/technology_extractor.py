@@ -40,7 +40,7 @@ class TechnologyExtractor:
             llm: Language model to use for extraction, or None to use the default
         """
         self.technology_repository = technology_repository
-        self.llm = llm or ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+        self.llm = llm or ChatOpenAI(temperature=0, model_name="o4-mini")
 
         # Cache of technology names to IDs for faster lookups
         self._technology_cache: Dict[str, int] = {}
