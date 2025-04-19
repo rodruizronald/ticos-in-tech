@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Growth Acceleration Partners",
+        "html_selectors": {
+            "job_board_selector": ["#jobs_list_container"],
+            "job_description_selector": ["main section.company-links", "main section div dl.company-links"]
+        },
+        "career_url": "https://careers.wearegap.com/jobs?country=Costa+Rica&query="
+    }
+]
