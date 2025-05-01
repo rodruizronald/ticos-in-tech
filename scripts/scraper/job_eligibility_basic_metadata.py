@@ -21,14 +21,18 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 OUTPUT_DIR = "jobs"  # Directory to store results
 MODEL = "o4-mini"  # OpenAI model to use
-PROMPT_FILE = "prompts/advanced_parser.md"  # File containing the prompt template
-LOG_LEVEL = "INFO"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+PROMPT_FILE = (
+    "prompts/job_eligibility_basic_metadata.md"  # File containing the prompt template
+)
+LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 # Configure logger
 logger.remove()  # Remove default handler
 logger.add(sys.stderr, level=LOG_LEVEL)  # Add stderr handler with desired log level
 logger.add(
-    f"{OUTPUT_DIR}/job_details_scraper.log", rotation="10 MB", level=LOG_LEVEL
+    f"{OUTPUT_DIR}/job_eligibility_basic_metadata.log",
+    rotation="10 MB",
+    level=LOG_LEVEL,
 )  # Add file handler
 
 # Initialize OpenAI client
@@ -141,7 +145,6 @@ async def process_job(job_url: str, selectors: list[str], company_name: str):
         job_data = json.loads(response_text)
 
         if job_data:  # If job meets eligibility criteria
-            job_data["job"]["application_url"] = job_url
             logger.success(f"Successfully processed job {job_url}")
             return job_data
         else:
@@ -184,14 +187,43 @@ async def main():
         job_description_selector = company_data.get("job_description_selector", [])
 
         for job in company_data.get("jobs", []):
-            job_url = job.get("url")
+            job_url = job.get("url", "")
+            job_title = job.get("title", "")
+            job_signature = job.get("signature", "")
+            is_job_new = job.get("new", True)
+
+            # Skip processing jobs that aren't new, but still include them in output
+            if not is_job_new:
+                logger.debug(
+                    f"Skipping processing for existing job: {job_title} at {job_url}"
+                )
+                # Create a basic job object with the essential fields
+                job_obj = {
+                    "company": company_name,
+                    "application_url": job_url,
+                    "title": job_title,
+                    "new": is_job_new,
+                    "signature": job_signature,
+                }
+                processed_jobs.append(job_obj)
+                continue
+
             if not job_url:
                 continue
 
+            logger.info(f"Processing new job: {job_title} at {job_url}")
             result = await process_job(job_url, job_description_selector, company_name)
             if result:
-                result["job"]["company"] = company_name
-                processed_jobs.append(result["job"])
+                # Only add the job to processed_jobs if it's eligible
+                if result["job"].get("eligible", False):
+                    result["job"]["title"] = job_title
+                    result["job"]["new"] = is_job_new
+                    result["job"]["company"] = company_name
+                    result["job"]["application_url"] = job_url
+                    result["job"]["signature"] = job_signature
+                    processed_jobs.append(result["job"])
+                else:
+                    logger.info(f"Job {job_title} did not meet eligibility criteria")
 
             # Delay to avoid rate limiting
             await asyncio.sleep(1)
