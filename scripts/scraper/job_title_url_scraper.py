@@ -4,6 +4,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import hashlib
 
 from dotenv import load_dotenv
 import openai
@@ -22,8 +23,8 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OUTPUT_DIR = "jobs"  # Directory to store results
 INPUT_FILE = "companies.json"  # JSON file with company career URLs
 MODEL = "o4-mini"  # OpenAI model to use
-PROMPT_FILE = "prompts/basic_parser.md"  # File containing the prompt template
-LOG_LEVEL = "INFO"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+PROMPT_FILE = "prompts/job_title_url_parser.md"  # File containing the prompt template
+LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 # Configure logger
 logger.remove()  # Remove default handler
@@ -163,6 +164,23 @@ async def process_company(
         }
 
 
+def generate_job_signature(url: str) -> str:
+    """
+    Generate a unique hash signature for a job URL.
+
+    Args:
+        url: The job URL to hash
+
+    Returns:
+        A string containing the hexadecimal hash signature
+    """
+    if not url:
+        return ""
+
+    # Create a hash of the URL
+    return hashlib.sha256(url.encode()).hexdigest()
+
+
 async def main():
     """Main function to process all companies."""
     # Create output directory if it doesn't exist
@@ -173,6 +191,18 @@ async def main():
         logger.error(f"Prompt template file '{PROMPT_FILE}' not found")
         return
 
+    # Load past job signatures if file exists
+    past_jobs_file = Path(OUTPUT_DIR) / "past_jobs.json"
+    past_signatures = set()
+    if past_jobs_file.exists():
+        try:
+            with open(past_jobs_file, "r") as f:
+                past_jobs_data = json.load(f)
+                past_signatures = set(past_jobs_data.get("signatures", []))
+        except Exception as e:
+            logger.error(f"Error reading past jobs file: {str(e)}")
+            # Continue with empty set if file can't be read
+
     # Read input file with company data
     try:
         with open(INPUT_FILE, "r") as f:
@@ -182,7 +212,8 @@ async def main():
         return
 
     # Process each company
-    companies_jobs = {"jobs": []}  # Initialize the structure for all jobs
+    companies_jobs = {"companies": []}  # Initialize the structure for all jobs
+    new_signatures = set()  # Track new signatures to add to past_jobs.json
 
     # Process each company
     for company in companies:
@@ -201,6 +232,19 @@ async def main():
 
         result = await process_company(company_name, career_url, job_board_selector)
 
+        # Generate signature for each job and check if it's new
+        for job in result.get("jobs", []):
+            signature = generate_job_signature(job.get("url", ""))
+            job["signature"] = signature
+            job["new"] = signature not in past_signatures
+
+            # If this is a new signature, add it to our set of new signatures
+            if job["new"]:
+                new_signatures.add(signature)
+                logger.info(f"New job found: {job.get('title')} at {job.get('url')}")
+            else:
+                logger.debug(f"Existing job: {job.get('title')}")
+
         # Add to the all_jobs structure
         companies_jobs["companies"].append(
             {
@@ -212,6 +256,15 @@ async def main():
 
         # Delay to avoid rate limiting
         await asyncio.sleep(1)
+
+    # Update past_jobs.json with combined signatures (past + new)
+    try:
+        updated_signatures = past_signatures.union(new_signatures)
+        with open(past_jobs_file, "w") as f:
+            json.dump({"signatures": list(updated_signatures)}, f, indent=2)
+        logger.info(f"Updated past jobs file with {len(new_signatures)} new signatures")
+    except Exception as e:
+        logger.error(f"Error updating past jobs file: {str(e)}")
 
     # Create dated directory and save results
     timestamp = datetime.now().strftime("%Y%m%d")
