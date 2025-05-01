@@ -198,8 +198,13 @@ async def main():
 
     # Save results
     output_file = input_dir / "processed_jobs.json"
-    with open(output_file, "w") as f:
-        json.dump({"jobs": processed_jobs}, f, indent=2)
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(
+            {"jobs": processed_jobs},
+            f,
+            indent=2,
+            ensure_ascii=False,  # This will prevent Unicode escaping
+        )
 
     logger.info(f"Processing complete. Results saved to {output_file}")
 
