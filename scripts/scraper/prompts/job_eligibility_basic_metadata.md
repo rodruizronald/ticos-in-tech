@@ -42,11 +42,13 @@ Return the analysis in JSON format using the following structure:
 
 ```json
 {
-  "eligible": true/false,
-  "location": "Costa Rica" OR "LATAM",
-  "work_mode": "Remote" OR "Hybrid" OR "Onsite",
-  "employment_type": "Full-time" OR "Part-time" OR "Contract" OR "Freelance" OR "Temporary" OR "Internship",
-  "experience_level": "Entry-level" OR "Junior" OR "Mid-level" OR "Senior" OR "Lead" OR "Principal" OR "Executive"
+  "job": {
+    "eligible": true/false,
+    "location": "Costa Rica" OR "LATAM",
+    "work_mode": "Remote" OR "Hybrid" OR "Onsite",
+    "employment_type": "Full-time" OR "Part-time" OR "Contract" OR "Freelance" OR "Temporary" OR "Internship",
+    "experience_level": "Entry-level" OR "Junior" OR "Mid-level" OR "Senior" OR "Lead" OR "Principal" OR "Executive"
+  }
 }
 ```
 
