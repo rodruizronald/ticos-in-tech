@@ -21,18 +21,14 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 OUTPUT_DIR = "jobs"  # Directory to store results
 MODEL = "o4-mini"  # OpenAI model to use
-PROMPT_FILE = (
-    "prompts/job_eligibility_basic_metadata.md"  # File containing the prompt template
-)
+PROMPT_FILE = "prompts/job_description.md"  # File containing the prompt template
 LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 # Configure logger
 logger.remove()  # Remove default handler
 logger.add(sys.stderr, level=LOG_LEVEL)  # Add stderr handler with desired log level
 logger.add(
-    f"{OUTPUT_DIR}/job_eligibility_basic_metadata.log",
-    rotation="10 MB",
-    level=LOG_LEVEL,
+    f"{OUTPUT_DIR}/job_description_scraper.log", rotation="10 MB", level=LOG_LEVEL
 )  # Add file handler
 
 # Initialize OpenAI client
@@ -109,9 +105,9 @@ def read_prompt_template():
         exit(1)
 
 
-async def process_job(job_url: str, selectors: list[str], company_name: str):
-    """Process a single job posting."""
-    logger.info(f"Processing job {job_url} for {company_name}...")
+async def extract_job_description(job_url: str, selectors: list[str]):
+    """Extract job description from a job posting URL."""
+    logger.info(f"Extracting description for job at {job_url}")
 
     # Extract HTML content
     html_content = await extract_html_content(job_url, selectors)
@@ -133,7 +129,7 @@ async def process_job(job_url: str, selectors: list[str], company_name: str):
             messages=[
                 {
                     "role": "system",
-                    "content": "You analyze job postings and extract structured information.",
+                    "content": "You extract job descriptions from HTML content.",
                 },
                 {"role": "user", "content": filled_prompt},
             ],
@@ -142,17 +138,13 @@ async def process_job(job_url: str, selectors: list[str], company_name: str):
 
         # Parse response
         response_text = response.choices[0].message.content
-        job_data = json.loads(response_text)
+        description_data = json.loads(response_text)
 
-        if job_data:  # If job meets eligibility criteria
-            logger.success(f"Successfully processed job {job_url}")
-            return job_data
-        else:
-            logger.info(f"Job {job_url} did not meet eligibility criteria")
-            return None
+        logger.success(f"Successfully extracted description for job {job_url}")
+        return description_data.get("description")
 
     except Exception as e:
-        logger.error(f"Error processing job {job_url} with OpenAI: {str(e)}")
+        logger.error(f"Error extracting description for job {job_url}: {str(e)}")
         return None
 
 
@@ -166,7 +158,7 @@ async def main():
         logger.error(f"Input directory {input_dir} does not exist")
         return
 
-    input_file = input_dir / "companies_jobs.json"
+    input_file = input_dir / "jobs_with_eligibility.json"
     if not input_file.exists():
         logger.error(f"Input file {input_file} does not exist")
         return
@@ -179,61 +171,40 @@ async def main():
         logger.error(f"Error reading input file: {str(e)}")
         return
 
-    # Process each company's jobs
-    processed_jobs = []
+    # Process each eligible job
+    updated_jobs = []
 
-    for company_data in data["companies"]:
-        company_name = company_data["company"]
-        job_description_selector = company_data.get("job_description_selector", [])
+    for job in data.get("jobs", []):
+        # Only process eligible jobs
+        if job.get("eligible", False):
+            job_url = job.get("application_url")
 
-        for job in company_data.get("jobs", []):
-            job_url = job.get("url", "")
-            job_title = job.get("title", "")
-            job_signature = job.get("signature", "")
-            is_job_new = job.get("new", True)
+            # Get job description selectors directly from the job object
+            selectors = job.get("job_description_selector", [])
 
-            # Skip processing jobs that aren't new, but still include them in output
-            if not is_job_new:
-                logger.debug(
-                    f"Skipping processing for existing job: {job_title} at {job_url}"
+            # Extract job description
+            description = await extract_job_description(job_url, selectors)
+
+            if description:
+                # Add description to job data
+                job["description"] = description
+                logger.info(f"Added description to job: {job.get('title')}")
+            else:
+                logger.warning(
+                    f"Failed to extract description for job: {job.get('title')}"
                 )
-                # Create a basic job object with the essential fields
-                job_obj = {
-                    "company": company_name,
-                    "application_url": job_url,
-                    "title": job_title,
-                    "new": is_job_new,
-                    "signature": job_signature,
-                }
-                processed_jobs.append(job_obj)
-                continue
 
-            if not job_url:
-                continue
+        # Add job to updated jobs list (whether it was processed or not)
+        updated_jobs.append(job)
 
-            logger.info(f"Processing new job: {job_title} at {job_url}")
-            result = await process_job(job_url, job_description_selector, company_name)
-            if result:
-                # Only add the job to processed_jobs if it's eligible
-                if result["job"].get("eligible", False):
-                    result["job"]["title"] = job_title
-                    result["job"]["new"] = is_job_new
-                    result["job"]["company"] = company_name
-                    result["job"]["application_url"] = job_url
-                    result["job"]["signature"] = job_signature
-                    result["job"]["job_description_selector"] = job_description_selector
-                    processed_jobs.append(result["job"])
-                else:
-                    logger.info(f"Job {job_title} did not meet eligibility criteria")
+        # Delay to avoid rate limiting
+        await asyncio.sleep(1)
 
-            # Delay to avoid rate limiting
-            await asyncio.sleep(1)
-
-    # Save results
-    output_file = input_dir / "jobs_with_eligibility.json"
+    # Save updated jobs data
+    output_file = input_dir / "jobs_with_descriptions.json"
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(
-            {"jobs": processed_jobs},
+            {"jobs": updated_jobs},
             f,
             indent=2,
             ensure_ascii=False,  # This will prevent Unicode escaping
@@ -248,7 +219,7 @@ if __name__ == "__main__":
         logger.error("OPENAI_API_KEY environment variable is not set")
         exit(1)
 
-    logger.info("Starting job details extraction process")
+    logger.info("Starting job description extraction process")
     # Run the async main function
     asyncio.run(main())
     logger.info("Process completed")
