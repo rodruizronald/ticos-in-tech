@@ -235,12 +235,3 @@ if __name__ == "__main__":
     # Run the async main function
     asyncio.run(main())
     logger.info("Process completed")
-
-    # print(
-    #     asyncio.run(
-    #         extract_html_content(
-    #             "https://careers.wearegap.com/jobs/5823470-advanced-fullstack-react-nodejs-software-engineer",
-    #             ["main section div dl.company-links"],
-    #         )
-    #     )
-    # )
