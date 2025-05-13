@@ -351,3 +351,270 @@ func TestRepository_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestRepository_List(t *testing.T) {
+    now := time.Now()
+    dbError := errors.New("database error")
+
+    tests := []struct {
+        name         string
+        mockSetup    func(mock pgxmock.PgxPoolIface)
+        checkResults func(t *testing.T, companies []*Company, err error)
+    }{
+        {
+            name: "successful listing with results",
+            mockSetup: func(mock pgxmock.PgxPoolIface) {
+                mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }).AddRow(
+                        1, "Company A", "https://example.com/logo1.png", true, now, now,
+                    ).AddRow(
+                        2, "Company B", "https://example.com/logo2.png", false, now, now,
+                    ))
+            },
+            checkResults: func(t *testing.T, companies []*Company, err error) {
+                assert.NoError(t, err)
+                assert.Len(t, companies, 2)
+                
+                assert.Equal(t, 1, companies[0].ID)
+                assert.Equal(t, "Company A", companies[0].Name)
+                assert.Equal(t, "https://example.com/logo1.png", companies[0].LogoURL)
+                assert.True(t, companies[0].Active)
+                
+                assert.Equal(t, 2, companies[1].ID)
+                assert.Equal(t, "Company B", companies[1].Name)
+                assert.Equal(t, "https://example.com/logo2.png", companies[1].LogoURL)
+                assert.False(t, companies[1].Active)
+            },
+        },
+        {
+            name: "successful listing with no results",
+            mockSetup: func(mock pgxmock.PgxPoolIface) {
+                mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }))
+            },
+            checkResults: func(t *testing.T, companies []*Company, err error) {
+                assert.NoError(t, err)
+                assert.Empty(t, companies)
+            },
+        },
+        {
+            name: "database error",
+            mockSetup: func(mock pgxmock.PgxPoolIface) {
+                mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
+                    WillReturnError(dbError)
+            },
+            checkResults: func(t *testing.T, companies []*Company, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, companies)
+                assert.True(t, errors.Is(err, dbError))
+            },
+        },
+        {
+            name: "scan error",
+            mockSetup: func(mock pgxmock.PgxPoolIface) {
+                // Return mismatched column count to cause scan error
+                mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", // Missing columns to cause scan error
+                    }).AddRow(
+                        1, "Company A",
+                    ))
+            },
+            checkResults: func(t *testing.T, companies []*Company, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, companies)
+                assert.Contains(t, err.Error(), "scan")
+            },
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            mockDB, err := pgxmock.NewPool()
+            require.NoError(t, err)
+            defer mockDB.Close()
+
+            repo := NewRepository(mockDB)
+            tt.mockSetup(mockDB)
+
+            companies, err := repo.List(context.Background())
+            tt.checkResults(t, companies, err)
+
+            assert.NoError(t, mockDB.ExpectationsWereMet())
+        })
+    }
+}
+
+func TestRepository_GetWithJobs(t *testing.T) {
+    now := time.Now()
+    dbError := errors.New("database error")
+
+    tests := []struct {
+        name         string
+        companyName  string
+        mockSetup    func(mock pgxmock.PgxPoolIface, companyName string)
+        checkResults func(t *testing.T, company *Company, err error)
+    }{
+        {
+            name:        "successful retrieval with jobs",
+            companyName: "Test Company",
+            mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+                // First query to get the company
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
+                    WithArgs(companyName).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }).AddRow(
+                        1, companyName, "https://example.com/logo.png", true, now, now,
+                    ))
+
+                // Second query to get the jobs
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyJobsQuery)).
+                    WithArgs(1).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "company_id", "title", "description", "experience_level", "employment_type",
+                        "location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+                    }).AddRow(
+                        101, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
+                        "San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
+                    ).AddRow(
+                        102, 1, "Product Manager", "Another description", "Senior", "Full-Time",
+                        "New York", "Hybrid", "https://example.com/apply2", true, "job-signature-2", now, now,
+                    ))
+            },
+            checkResults: func(t *testing.T, company *Company, err error) {
+                assert.NoError(t, err)
+                assert.NotNil(t, company)
+                assert.Equal(t, 1, company.ID)
+                assert.Equal(t, "Test Company", company.Name)
+                assert.Equal(t, "https://example.com/logo.png", company.LogoURL)
+                assert.True(t, company.Active)
+
+                // Check jobs
+                assert.Len(t, company.Jobs, 2)
+                assert.Equal(t, 101, company.Jobs[0].ID)
+                assert.Equal(t, "Software Engineer", company.Jobs[0].Title)
+                assert.Equal(t, 102, company.Jobs[1].ID)
+                assert.Equal(t, "Product Manager", company.Jobs[1].Title)
+            },
+        },
+        {
+            name:        "company not found",
+            companyName: "Nonexistent Company",
+            mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
+                    WithArgs(companyName).
+                    WillReturnError(pgx.ErrNoRows)
+            },
+            checkResults: func(t *testing.T, company *Company, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, company)
+
+                var notFoundErr *ErrNotFound
+                assert.True(t, errors.As(err, &notFoundErr))
+                assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
+            },
+        },
+        {
+            name:        "company found but error fetching jobs",
+            companyName: "Test Company",
+            mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+                // First query to get the company
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
+                    WithArgs(companyName).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }).AddRow(
+                        1, companyName, "https://example.com/logo.png", true, now, now,
+                    ))
+
+                // Second query to get jobs returns error
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyJobsQuery)).
+                    WithArgs(1).
+                    WillReturnError(dbError)
+            },
+            checkResults: func(t *testing.T, company *Company, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, company)
+                assert.True(t, errors.Is(err, dbError))
+            },
+        },
+        {
+            name:        "company found with no jobs",
+            companyName: "Test Company",
+            mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+                // First query to get the company
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
+                    WithArgs(companyName).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }).AddRow(
+                        1, companyName, "https://example.com/logo.png", true, now, now,
+                    ))
+
+                // Second query to get jobs returns empty result
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyJobsQuery)).
+                    WithArgs(1).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "company_id", "title", "description", "experience_level", "employment_type",
+                        "location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+                    }))
+            },
+            checkResults: func(t *testing.T, company *Company, err error) {
+                assert.NoError(t, err)
+                assert.NotNil(t, company)
+                assert.Equal(t, 1, company.ID)
+                assert.Equal(t, "Test Company", company.Name)
+                assert.Empty(t, company.Jobs)
+            },
+        },
+        {
+            name:        "scan error in jobs",
+            companyName: "Test Company",
+            mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+                // First query to get the company
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
+                    WithArgs(companyName).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "logo_url", "active", "created_at", "updated_at",
+                    }).AddRow(
+                        1, companyName, "https://example.com/logo.png", true, now, now,
+                    ))
+
+                // Second query returns mismatched columns to cause scan error
+                mock.ExpectQuery(regexp.QuoteMeta(getCompanyJobsQuery)).
+                    WithArgs(1).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "company_id", "title", // Missing columns to cause scan error
+                    }).AddRow(
+                        101, 1, "Software Engineer",
+                    ))
+            },
+            checkResults: func(t *testing.T, company *Company, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, company)
+                assert.Contains(t, err.Error(), "scan")
+            },
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            mockDB, err := pgxmock.NewPool()
+            require.NoError(t, err)
+            defer mockDB.Close()
+
+            repo := NewRepository(mockDB)
+            tt.mockSetup(mockDB, tt.companyName)
+
+            company, err := repo.GetWithJobs(context.Background(), tt.companyName)
+            tt.checkResults(t, company, err)
+
+            assert.NoError(t, mockDB.ExpectationsWereMet())
+        })
+    }
+}
