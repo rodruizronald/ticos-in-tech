@@ -585,3 +585,72 @@ func TestRepository_Update(t *testing.T) {
         })
     }
 }
+
+func TestRepository_Delete(t *testing.T) {
+    dbError := errors.New("database error")
+
+    tests := []struct {
+        name         string
+        id           int
+        mockSetup    func(mock pgxmock.PgxPoolIface, id int)
+        checkResults func(t *testing.T, err error)
+    }{
+        {
+            name: "successful deletion",
+            id:   1,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                mock.ExpectExec(regexp.QuoteMeta(deleteJobQuery)).
+                    WithArgs(id).
+                    WillReturnResult(pgxmock.NewResult("DELETE", 1))
+            },
+            checkResults: func(t *testing.T, err error) {
+                assert.NoError(t, err)
+            },
+        },
+        {
+            name: "job not found",
+            id:   999,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                mock.ExpectExec(regexp.QuoteMeta(deleteJobQuery)).
+                    WithArgs(id).
+                    WillReturnResult(pgxmock.NewResult("DELETE", 0))
+            },
+            checkResults: func(t *testing.T, err error) {
+                assert.Error(t, err)
+                
+                var notFoundErr *ErrNotFound
+                assert.True(t, errors.As(err, &notFoundErr))
+                assert.Equal(t, 999, notFoundErr.ID)
+            },
+        },
+        {
+            name: "database error",
+            id:   1,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                mock.ExpectExec(regexp.QuoteMeta(deleteJobQuery)).
+                    WithArgs(id).
+                    WillReturnError(dbError)
+            },
+            checkResults: func(t *testing.T, err error) {
+                assert.Error(t, err)
+                assert.True(t, errors.Is(err, dbError))
+            },
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            mockDB, err := pgxmock.NewPool()
+            require.NoError(t, err)
+            defer mockDB.Close()
+
+            repo := NewRepository(mockDB)
+            tt.mockSetup(mockDB, tt.id)
+
+            err = repo.Delete(context.Background(), tt.id)
+            tt.checkResults(t, err)
+
+            assert.NoError(t, mockDB.ExpectationsWereMet())
+        })
+    }
+}
