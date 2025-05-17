@@ -170,9 +170,9 @@ Use full names:
 
 Each technology must be placed in exactly one category based on its primary purpose. The following lists provide guidance for common technologies in each category:
 
-### Programming Languages
+### Programming
 
-Languages used primarily for writing code: Python, Java, JavaScript, TypeScript, C#, C++, Go, Ruby, PHP, Swift, Kotlin, Rust, Scala, R, MATLAB, Perl, Groovy, Bash, PowerShell, Dart, Clojure, Elixir, Erlang, F#, Haskell, Julia, Lua, Objective-C, OCaml, SQL, VBA, .NET
+Languages used primarily for writing code: Python, Java, JavaScript, TypeScript, C#, C++, Go, Ruby, PHP, Swift, Kotlin, Rust, Scala, R, MATLAB, Perl, Groovy, Bash, PowerShell, Dart, Clojure, Elixir, Erlang, F#, Haskell, Julia, Lua, Objective-C, OCaml, SQL, VBA
 
 ### Frontend
 
@@ -180,7 +180,7 @@ Technologies primarily used for client-side web development: React, Angular, Vue
 
 ### Backend
 
-Technologies primarily used for server-side development: Django, Flask, Spring, Express, ASP.NET, Laravel, Ruby on Rails, Nest.js, FastAPI, Play, Phoenix, Rocket, Gin, Echo, Symfony, Strapi, Node.js, Deno, Bun, gRPC, Micronaut, Quarkus, Ktor, Actix, Axum, Fiber, Buffalo
+Technologies primarily used for server-side development: Django, Flask, Spring, Express, ASP.NET, Laravel, Nest.js, FastAPI, Play, Phoenix, Rocket, Gin, Echo, Symfony, Strapi, Node.js, Deno, Bun, Micronaut, Quarkus, Ktor, Actix, Axum, Fiber, Buffalo, .NET
 
 ### Databases
 
@@ -188,7 +188,7 @@ Database systems and related technologies: MySQL, PostgreSQL, SQLite, Oracle, Mi
 
 ### API
 
-Technologies primarily for API development and management: REST, GraphQL, SOAP, WebSockets, Swagger, OpenAPI, Apollo, Postman, OAuth, JWT, API Gateway, Tyk, Kong, Apigee, FastAPI, gRPC, Protocol Buffers, tRPC, HATEOAS, RPC, GraphQL Federation
+Technologies primarily for API development and management: REST, GraphQL, SOAP, WebSockets, Swagger, OpenAPI, Apollo, Postman, OAuth, JWT, API Gateway, Tyk, Kong, Apigee, gRPC, Protocol Buffers, tRPC, HATEOAS, RPC, GraphQL Federation
 
 ### Cloud
 
@@ -218,7 +218,7 @@ AI/ML tools and frameworks (but not programming languages used in AI): TensorFlo
 
 Office suites, collaboration and project management tools: Microsoft Office, Google Workspace, Notion, Asana, Trello, Slack, Microsoft Teams, Jira, Confluence, Monday.com, Airtable, ClickUp, Todoist, Basecamp, Calendly, Zoom, Microsoft 365, OneNote, Evernote, SharePoint, Miro, Figma
 
-### Data Science
+### Data
 
 Data processing, analysis, and visualization tools (separate from AI/ML): Pandas, NumPy, Matplotlib, Tableau, Power BI, Excel, R Studio, Jupyter, SciPy, Seaborn, Plotly, D3.js, Databricks, dbt, Looker, Metabase, Mode, Redash, Apache Spark, KNIME, RapidMiner, Orange, Alteryx, QlikView
 
