@@ -1,12 +1,11 @@
 -- Drop indexes first
-DROP INDEX IF EXISTS idx_job_technologies_primary;
 DROP INDEX IF EXISTS idx_job_technologies_technology_id;
 DROP INDEX IF EXISTS idx_job_technologies_job_id;
 
-DROP INDEX IF EXISTS idx_technology_aliases_lower_alias;
 DROP INDEX IF EXISTS idx_technology_aliases_alias;
 DROP INDEX IF EXISTS idx_technology_aliases_technology_id;
 
+DROP INDEX IF EXISTS idx_technologies_parent_id;
 DROP INDEX IF EXISTS idx_technologies_category;
 DROP INDEX IF EXISTS idx_technologies_name;
 
@@ -16,12 +15,12 @@ DROP INDEX IF EXISTS idx_jobs_signature;
 DROP INDEX IF EXISTS idx_jobs_company_id;
 DROP INDEX IF EXISTS idx_jobs_created_at;
 DROP INDEX IF EXISTS idx_jobs_work_mode;
-DROP INDEX IF EXISTS idx_active_jobs;
+DROP INDEX IF EXISTS idx_jobs_active;
 DROP INDEX IF EXISTS idx_jobs_location;
 DROP INDEX IF EXISTS idx_jobs_description_tsvector;
 DROP INDEX IF EXISTS idx_jobs_title_tsvector;
 
-DROP INDEX IF EXISTS idx_companies_industry;
+DROP INDEX IF EXISTS idx_companies_active;
 DROP INDEX IF EXISTS idx_companies_name;
 
 -- Drop tables in reverse order of creation (to handle dependencies)
