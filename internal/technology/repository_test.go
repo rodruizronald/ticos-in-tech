@@ -17,6 +17,7 @@ import (
 func TestRepository_Create(t *testing.T) {
 	now := time.Now()
 	dbError := errors.New("database error")
+	parentID := 5
 
 	tests := []struct {
 		name         string
@@ -29,10 +30,11 @@ func TestRepository_Create(t *testing.T) {
 			technology: &Technology{
 				Name:     "Go",
 				Category: "Programming Language",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectQuery(regexp.QuoteMeta(createTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category).
+					WithArgs(technology.Name, technology.Category, technology.ParentID).
 					WillReturnRows(pgxmock.NewRows([]string{"id", "created_at"}).
 						AddRow(1, now))
 			},
@@ -43,14 +45,35 @@ func TestRepository_Create(t *testing.T) {
 			},
 		},
 		{
+			name: "successful creation with parent ID",
+			technology: &Technology{
+				Name:     "Gin",
+				Category: "Framework",
+				ParentID: &parentID,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
+				mock.ExpectQuery(regexp.QuoteMeta(createTechnologyQuery)).
+					WithArgs(technology.Name, technology.Category, technology.ParentID).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "created_at"}).
+						AddRow(2, now))
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, 2, result.ID)
+				assert.Equal(t, now, result.CreatedAt)
+				assert.Equal(t, &parentID, result.ParentID)
+			},
+		},
+		{
 			name: "duplicate technology name",
 			technology: &Technology{
 				Name:     "Duplicate Tech",
 				Category: "Programming Language",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectQuery(regexp.QuoteMeta(createTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category).
+					WithArgs(technology.Name, technology.Category, technology.ParentID).
 					WillReturnError(&pgconn.PgError{Code: "23505"})
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -65,10 +88,11 @@ func TestRepository_Create(t *testing.T) {
 			technology: &Technology{
 				Name:     "Error Tech",
 				Category: "Programming Language",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectQuery(regexp.QuoteMeta(createTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category).
+					WithArgs(technology.Name, technology.Category, technology.ParentID).
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -98,6 +122,7 @@ func TestRepository_Create(t *testing.T) {
 func TestRepository_GetByID(t *testing.T) {
 	now := time.Now()
 	dbError := errors.New("database error")
+	parentID := 5
 
 	tests := []struct {
 		name         string
@@ -112,9 +137,9 @@ func TestRepository_GetByID(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						id, "Go", "Programming Language", now,
+						id, "Go", "Programming Language", nil, now,
 					))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -123,6 +148,29 @@ func TestRepository_GetByID(t *testing.T) {
 				assert.Equal(t, 1, result.ID)
 				assert.Equal(t, "Go", result.Name)
 				assert.Equal(t, "Programming Language", result.Category)
+				assert.Nil(t, result.ParentID)
+				assert.Equal(t, now, result.CreatedAt)
+			},
+		},
+		{
+			name: "technology found with parent ID",
+			id:   2,
+			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+					WithArgs(id).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "name", "category", "parent_id", "created_at",
+					}).AddRow(
+						id, "Gin", "Framework", &parentID, now,
+					))
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, 2, result.ID)
+				assert.Equal(t, "Gin", result.Name)
+				assert.Equal(t, "Framework", result.Category)
+				assert.Equal(t, parentID, *result.ParentID)
 				assert.Equal(t, now, result.CreatedAt)
 			},
 		},
@@ -179,6 +227,7 @@ func TestRepository_GetByID(t *testing.T) {
 func TestRepository_GetByName(t *testing.T) {
 	now := time.Now()
 	dbError := errors.New("database error")
+	parentID := 5
 
 	tests := []struct {
 		name         string
@@ -193,9 +242,9 @@ func TestRepository_GetByName(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByNameQuery)).
 					WithArgs(techName).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						1, techName, "Programming Language", now,
+						1, techName, "Programming Language", nil, now,
 					))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -204,6 +253,30 @@ func TestRepository_GetByName(t *testing.T) {
 				assert.Equal(t, 1, result.ID)
 				assert.Equal(t, "Go", result.Name)
 				assert.Equal(t, "Programming Language", result.Category)
+				assert.Nil(t, result.ParentID)
+				assert.Equal(t, now, result.CreatedAt)
+			},
+		},
+		{
+			name:     "technology found with parent ID",
+			techName: "Gin",
+			mockSetup: func(mock pgxmock.PgxPoolIface, techName string) {
+				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByNameQuery)).
+					WithArgs(techName).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "name", "category", "parent_id", "created_at",
+					}).AddRow(
+						2, techName, "Framework", &parentID, now,
+					))
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, 2, result.ID)
+				assert.Equal(t, "Gin", result.Name)
+				assert.Equal(t, "Framework", result.Category)
+				assert.NotNil(t, result.ParentID)
+				assert.Equal(t, parentID, *result.ParentID)
 				assert.Equal(t, now, result.CreatedAt)
 			},
 		},
@@ -259,6 +332,7 @@ func TestRepository_GetByName(t *testing.T) {
 
 func TestRepository_Update(t *testing.T) {
 	dbError := errors.New("database error")
+	parentID := 5
 
 	tests := []struct {
 		name         string
@@ -267,19 +341,38 @@ func TestRepository_Update(t *testing.T) {
 		checkResults func(t *testing.T, result *Technology, err error)
 	}{
 		{
-			name: "successful update",
+			name: "successful update without parent ID",
 			technology: &Technology{
 				ID:       1,
 				Name:     "Updated Tech",
 				Category: "Updated Category",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectExec(regexp.QuoteMeta(updateTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category, technology.ID).
+					WithArgs(technology.Name, technology.Category, technology.ParentID, technology.ID).
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
 				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "successful update with parent ID",
+			technology: &Technology{
+				ID:       2,
+				Name:     "Updated Framework",
+				Category: "Framework",
+				ParentID: &parentID,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
+				mock.ExpectExec(regexp.QuoteMeta(updateTechnologyQuery)).
+					WithArgs(technology.Name, technology.Category, technology.ParentID, technology.ID).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, &parentID, result.ParentID)
 			},
 		},
 		{
@@ -288,11 +381,12 @@ func TestRepository_Update(t *testing.T) {
 				ID:       999,
 				Name:     "Nonexistent Tech",
 				Category: "Nonexistent Category",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectExec(regexp.QuoteMeta(updateTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category, technology.ID).
-					WillReturnError(pgx.ErrNoRows)
+					WithArgs(technology.Name, technology.Category, technology.ParentID, technology.ID).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
 				assert.Error(t, err)
@@ -302,15 +396,40 @@ func TestRepository_Update(t *testing.T) {
 			},
 		},
 		{
+			name: "duplicate technology name",
+			technology: &Technology{
+				ID:       3,
+				Name:     "Duplicate Tech",
+				Category: "Programming Language",
+				ParentID: nil,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
+				pgErr := &pgconn.PgError{
+					Code:           "23505",
+					ConstraintName: "technologies_name_key",
+				}
+				mock.ExpectExec(regexp.QuoteMeta(updateTechnologyQuery)).
+					WithArgs(technology.Name, technology.Category, technology.ParentID, technology.ID).
+					WillReturnError(pgErr)
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.Error(t, err)
+				var duplicateErr *ErrDuplicate
+				assert.True(t, errors.As(err, &duplicateErr))
+				assert.Equal(t, "Duplicate Tech", duplicateErr.Name)
+			},
+		},
+		{
 			name: "database error",
 			technology: &Technology{
 				ID:       1,
 				Name:     "Error Tech",
 				Category: "Error Category",
+				ParentID: nil,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, technology *Technology) {
 				mock.ExpectExec(regexp.QuoteMeta(updateTechnologyQuery)).
-					WithArgs(technology.Name, technology.Category, technology.ID).
+					WithArgs(technology.Name, technology.Category, technology.ParentID, technology.ID).
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -409,6 +528,7 @@ func TestRepository_Delete(t *testing.T) {
 func TestRepository_GetWithAliases(t *testing.T) {
 	now := time.Now()
 	dbError := errors.New("database error")
+	parentID := 5
 
 	tests := []struct {
 		name         string
@@ -424,9 +544,9 @@ func TestRepository_GetWithAliases(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						id, "JavaScript", "Programming Language", now,
+						id, "JavaScript", "Programming Language", nil, now,
 					))
 
 				// Second query to get the aliases
@@ -446,11 +566,48 @@ func TestRepository_GetWithAliases(t *testing.T) {
 				assert.Equal(t, 1, result.ID)
 				assert.Equal(t, "JavaScript", result.Name)
 				assert.Equal(t, "Programming Language", result.Category)
+				assert.Nil(t, result.ParentID)
 
 				// Check aliases
 				assert.Len(t, result.Aliases, 2)
 				assert.Equal(t, "JS", result.Aliases[0].Alias)
 				assert.Equal(t, "ECMAScript", result.Aliases[1].Alias)
+			},
+		},
+		{
+			name: "successful retrieval with parent ID and aliases",
+			id:   2,
+			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+				// First query to get the technology
+				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+					WithArgs(id).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "name", "category", "parent_id", "created_at",
+					}).AddRow(
+						id, "React", "Framework", &parentID, now,
+					))
+
+				// Second query to get the aliases
+				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyAliasesQuery)).
+					WithArgs(id).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "technology_id", "alias", "created_at",
+					}).AddRow(
+						3, id, "ReactJS", now,
+					))
+			},
+			checkResults: func(t *testing.T, result *Technology, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, 2, result.ID)
+				assert.Equal(t, "React", result.Name)
+				assert.Equal(t, "Framework", result.Category)
+				assert.NotNil(t, result.ParentID)
+				assert.Equal(t, parentID, *result.ParentID)
+
+				// Check aliases
+				assert.Len(t, result.Aliases, 1)
+				assert.Equal(t, "ReactJS", result.Aliases[0].Alias)
 			},
 		},
 		{
@@ -472,15 +629,15 @@ func TestRepository_GetWithAliases(t *testing.T) {
 		},
 		{
 			name: "technology found but error fetching aliases",
-			id:   1,
+			id:   3,
 			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
 				// First query to get the technology
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						id, "JavaScript", "Programming Language", now,
+						id, "Python", "Programming Language", nil, now,
 					))
 
 				// Second query to get aliases returns error
@@ -496,15 +653,15 @@ func TestRepository_GetWithAliases(t *testing.T) {
 		},
 		{
 			name: "technology found with no aliases",
-			id:   2,
+			id:   4,
 			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
 				// First query to get the technology
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						id, "Go", "Programming Language", now,
+						id, "Go", "Programming Language", nil, now,
 					))
 
 				// Second query to get aliases returns empty result
@@ -517,23 +674,24 @@ func TestRepository_GetWithAliases(t *testing.T) {
 			checkResults: func(t *testing.T, result *Technology, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
-				assert.Equal(t, 2, result.ID)
+				assert.Equal(t, 4, result.ID)
 				assert.Equal(t, "Go", result.Name)
 				assert.Equal(t, "Programming Language", result.Category)
+				assert.Nil(t, result.ParentID)
 				assert.Empty(t, result.Aliases)
 			},
 		},
 		{
 			name: "scan error in aliases",
-			id:   3,
+			id:   5,
 			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
 				// First query to get the technology
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
+						"id", "name", "category", "parent_id", "created_at",
 					}).AddRow(
-						id, "Python", "Programming Language", now,
+						id, "Ruby", "Programming Language", nil, now,
 					))
 
 				// Second query returns mismatched columns to cause scan error
@@ -571,167 +729,208 @@ func TestRepository_GetWithAliases(t *testing.T) {
 }
 
 func TestRepository_GetWithJobs(t *testing.T) {
-	now := time.Now()
-	dbError := errors.New("database error")
+    now := time.Now()
+    dbError := errors.New("database error")
+    parentID := 5
 
-	tests := []struct {
-		name         string
-		id           int
-		mockSetup    func(mock pgxmock.PgxPoolIface, id int)
-		checkResults func(t *testing.T, result *Technology, err error)
-	}{
-		{
-			name: "successful retrieval with jobs",
-			id:   1,
-			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
-				// First query to get the technology
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
-					}).AddRow(
-						id, "Go", "Programming Language", now,
-					))
+    tests := []struct {
+        name         string
+        id           int
+        mockSetup    func(mock pgxmock.PgxPoolIface, id int)
+        checkResults func(t *testing.T, result *Technology, err error)
+    }{
+        {
+            name: "successful retrieval with jobs",
+            id:   1,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                // First query to get the technology
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "category", "parent_id", "created_at",
+                    }).AddRow(
+                        id, "Go", "Programming Language", nil, now,
+                    ))
 
-				// Second query to get the job associations
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
-					}).AddRow(
-						1, 101, id, true, true, now,
-					).AddRow(
-						2, 102, id, false, true, now,
-					))
-			},
-			checkResults: func(t *testing.T, result *Technology, err error) {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, 1, result.ID)
-				assert.Equal(t, "Go", result.Name)
-				assert.Equal(t, "Programming Language", result.Category)
+                // Second query to get the job associations
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+                    }).AddRow(
+                        1, 101, id, true, true, now,
+                    ).AddRow(
+                        2, 102, id, false, true, now,
+                    ))
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.NoError(t, err)
+                assert.NotNil(t, result)
+                assert.Equal(t, 1, result.ID)
+                assert.Equal(t, "Go", result.Name)
+                assert.Equal(t, "Programming Language", result.Category)
+                assert.Nil(t, result.ParentID)
 
-				// Check job associations
-				assert.Len(t, result.Jobs, 2)
-				assert.Equal(t, 101, result.Jobs[0].JobID)
-				assert.True(t, result.Jobs[0].IsPrimary)
-				assert.Equal(t, 102, result.Jobs[1].JobID)
-				assert.False(t, result.Jobs[1].IsPrimary)
-			},
-		},
-		{
-			name: "technology not found",
-			id:   999,
-			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
-					WithArgs(id).
-					WillReturnError(pgx.ErrNoRows)
-			},
-			checkResults: func(t *testing.T, result *Technology, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, result)
+                // Check job associations
+                assert.Len(t, result.Jobs, 2)
+                assert.Equal(t, 101, result.Jobs[0].JobID)
+                assert.True(t, result.Jobs[0].IsPrimary)
+                assert.Equal(t, 102, result.Jobs[1].JobID)
+                assert.False(t, result.Jobs[1].IsPrimary)
+            },
+        },
+        {
+            name: "successful retrieval with parent ID and jobs",
+            id:   2,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                // First query to get the technology
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "category", "parent_id", "created_at",
+                    }).AddRow(
+                        id, "React", "Framework", &parentID, now,
+                    ))
 
-				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
-				assert.Equal(t, 999, notFoundErr.ID)
-			},
-		},
-		{
-			name: "technology found but error fetching jobs",
-			id:   1,
-			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
-				// First query to get the technology
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
-					}).AddRow(
-						id, "Go", "Programming Language", now,
-					))
+                // Second query to get the job associations
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+                    }).AddRow(
+                        3, 201, id, true, false, now,
+                    ))
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.NoError(t, err)
+                assert.NotNil(t, result)
+                assert.Equal(t, 2, result.ID)
+                assert.Equal(t, "React", result.Name)
+                assert.Equal(t, "Framework", result.Category)
+                assert.NotNil(t, result.ParentID)
+                assert.Equal(t, parentID, *result.ParentID)
 
-				// Second query to get jobs returns error
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
-					WithArgs(id).
-					WillReturnError(dbError)
-			},
-			checkResults: func(t *testing.T, result *Technology, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-				assert.True(t, errors.Is(err, dbError))
-			},
-		},
-		{
-			name: "technology found with no jobs",
-			id:   2,
-			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
-				// First query to get the technology
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
-					}).AddRow(
-						id, "Python", "Programming Language", now,
-					))
+                // Check job associations
+                assert.Len(t, result.Jobs, 1)
+                assert.Equal(t, 201, result.Jobs[0].JobID)
+                assert.True(t, result.Jobs[0].IsPrimary)
+                assert.False(t, result.Jobs[0].IsRequired)
+            },
+        },
+        {
+            name: "technology not found",
+            id:   999,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnError(pgx.ErrNoRows)
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, result)
 
-				// Second query to get jobs returns empty result
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
-					}))
-			},
-			checkResults: func(t *testing.T, result *Technology, err error) {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, 2, result.ID)
-				assert.Equal(t, "Python", result.Name)
-				assert.Equal(t, "Programming Language", result.Category)
-				assert.Empty(t, result.Jobs)
-			},
-		},
-		{
-			name: "scan error in jobs",
-			id:   3,
-			mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
-				// First query to get the technology
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "name", "category", "created_at",
-					}).AddRow(
-						id, "Java", "Programming Language", now,
-					))
+                var notFoundErr *ErrNotFound
+                assert.True(t, errors.As(err, &notFoundErr))
+                assert.Equal(t, 999, notFoundErr.ID)
+            },
+        },
+        {
+            name: "technology found but error fetching jobs",
+            id:   3,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                // First query to get the technology
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "category", "parent_id", "created_at",
+                    }).AddRow(
+                        id, "Python", "Programming Language", nil, now,
+                    ))
 
-				// Second query returns mismatched columns to cause scan error
-				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
-					WithArgs(id).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", // Missing columns to cause scan error
-					}).AddRow(
-						1, 103, id,
-					))
-			},
-			checkResults: func(t *testing.T, result *Technology, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-				assert.Contains(t, err.Error(), "scan")
-			},
-		},
-	}
+                // Second query to get jobs returns error
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
+                    WithArgs(id).
+                    WillReturnError(dbError)
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, result)
+                assert.True(t, errors.Is(err, dbError))
+            },
+        },
+        {
+            name: "technology found with no jobs",
+            id:   4,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                // First query to get the technology
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "category", "parent_id", "created_at",
+                    }).AddRow(
+                        id, "Ruby", "Programming Language", nil, now,
+                    ))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockDB, err := pgxmock.NewPool()
-			require.NoError(t, err)
-			defer mockDB.Close()
+                // Second query to get jobs returns empty result
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+                    }))
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.NoError(t, err)
+                assert.NotNil(t, result)
+                assert.Equal(t, 4, result.ID)
+                assert.Equal(t, "Ruby", result.Name)
+                assert.Equal(t, "Programming Language", result.Category)
+                assert.Nil(t, result.ParentID)
+                assert.Empty(t, result.Jobs)
+            },
+        },
+        {
+            name: "scan error in jobs",
+            id:   5,
+            mockSetup: func(mock pgxmock.PgxPoolIface, id int) {
+                // First query to get the technology
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyByIDQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "name", "category", "parent_id", "created_at",
+                    }).AddRow(
+                        id, "Java", "Programming Language", nil, now,
+                    ))
 
-			repo := NewRepository(mockDB)
-			tt.mockSetup(mockDB, tt.id)
+                // Second query returns mismatched columns to cause scan error
+                mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
+                    WithArgs(id).
+                    WillReturnRows(pgxmock.NewRows([]string{
+                        "id", "job_id", "technology_id", // Missing columns to cause scan error
+                    }).AddRow(
+                        1, 103, id,
+                    ))
+            },
+            checkResults: func(t *testing.T, result *Technology, err error) {
+                assert.Error(t, err)
+                assert.Nil(t, result)
+                assert.Contains(t, err.Error(), "scan")
+            },
+        },
+    }
 
-			result, err := repo.GetWithJobs(context.Background(), tt.id)
-			tt.checkResults(t, result, err)
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            mockDB, err := pgxmock.NewPool()
+            require.NoError(t, err)
+            defer mockDB.Close()
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
-		})
-	}
+            repo := NewRepository(mockDB)
+            tt.mockSetup(mockDB, tt.id)
+
+            result, err := repo.GetWithJobs(context.Background(), tt.id)
+            tt.checkResults(t, result, err)
+
+            assert.NoError(t, mockDB.ExpectationsWereMet())
+        })
+    }
 }

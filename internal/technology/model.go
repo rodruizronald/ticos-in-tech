@@ -13,6 +13,7 @@ type Technology struct {
 	ID        int       `json:"id" db:"id"`
 	Name      string    `json:"name" db:"name"`
 	Category  string    `json:"category" db:"category"`
+	ParentID  *int      `json:"parent_id,omitempty" db:"parent_id"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 
 	// Relationships (not stored in database)

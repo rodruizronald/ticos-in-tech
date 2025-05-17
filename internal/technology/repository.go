@@ -14,27 +14,27 @@ import (
 // SQL query constants
 const (
 	createTechnologyQuery = `
-        INSERT INTO technologies (name, category)
-        VALUES ($1, $2)
+        INSERT INTO technologies (name, category, parent_id)
+        VALUES ($1, $2, $3)
         RETURNING id, created_at
     `
 
 	getTechnologyByIDQuery = `
-        SELECT id, name, category, created_at
+        SELECT id, name, category, parent_id, created_at
         FROM technologies
         WHERE id = $1
     `
 
 	getTechnologyByNameQuery = `
-        SELECT id, name, category, created_at
+        SELECT id, name, category, parent_id, created_at
         FROM technologies
         WHERE name = $1
     `
 
 	updateTechnologyQuery = `
         UPDATE technologies
-        SET name = $1, category = $2
-        WHERE id = $3
+        SET name = $1, category = $2, parent_id = $3
+        WHERE id = $4
     `
 
 	deleteTechnologyQuery = `DELETE FROM technologies WHERE id = $1`
@@ -78,6 +78,7 @@ func (r *Repository) Create(ctx context.Context, tech *Technology) error {
 		createTechnologyQuery,
 		tech.Name,
 		tech.Category,
+		tech.ParentID,
 	).Scan(&tech.ID, &tech.CreatedAt)
 
 	if err != nil {
@@ -99,6 +100,7 @@ func (r *Repository) GetByID(ctx context.Context, id int) (*Technology, error) {
 		&tech.ID,
 		&tech.Name,
 		&tech.Category,
+		&tech.ParentID,
 		&tech.CreatedAt,
 	)
 
@@ -119,6 +121,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Technology, e
 		&tech.ID,
 		&tech.Name,
 		&tech.Category,
+		&tech.ParentID,
 		&tech.CreatedAt,
 	)
 
@@ -139,6 +142,7 @@ func (r *Repository) Update(ctx context.Context, tech *Technology) error {
 		updateTechnologyQuery,
 		tech.Name,
 		tech.Category,
+		tech.ParentID,
 		tech.ID,
 	)
 

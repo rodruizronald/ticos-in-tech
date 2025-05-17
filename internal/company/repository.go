@@ -13,29 +13,28 @@ import (
 // SQL query constants
 const (
 	createCompanyQuery = `
-        INSERT INTO companies (name, careers_page_url, logo_url, description, industry, active)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO companies (name, logo_url, is_active)
+        VALUES ($1, $2, $3)
         RETURNING id
     `
 
 	getCompanyByNameQuery = `
-        SELECT id, name, careers_page_url, logo_url, description, industry, active, created_at, updated_at
+        SELECT id, name, logo_url, is_active, created_at, updated_at
         FROM companies
         WHERE name = $1
     `
 
 	updateCompanyQuery = `
         UPDATE companies
-        SET name = $1, careers_page_url = $2, logo_url = $3, description = $4,
-            industry = $5, active = $6, updated_at = NOW()
-        WHERE id = $7
+        SET name = $1, logo_url = $2, is_active = $3, updated_at = NOW()
+        WHERE id = $4
         RETURNING updated_at
     `
 
 	deleteCompanyQuery = `DELETE FROM companies WHERE id = $1`
 
 	listCompaniesQuery = `
-        SELECT id, name, careers_page_url, logo_url, description, industry, active, created_at, updated_at
+        SELECT id, name, logo_url, is_active, created_at, updated_at
         FROM companies
         ORDER BY name
     `
@@ -73,7 +72,7 @@ func (r *Repository) Create(ctx context.Context, company *Company) error {
 		createCompanyQuery,
 		company.Name,
 		company.LogoURL,
-		company.Active,
+		company.IsActive,
 	).Scan(&company.ID)
 
 	if err != nil {
@@ -95,7 +94,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Company, erro
 		&company.ID,
 		&company.Name,
 		&company.LogoURL,
-		&company.Active,
+		&company.IsActive,
 		&company.CreatedAt,
 		&company.UpdatedAt,
 	)
@@ -117,7 +116,7 @@ func (r *Repository) Update(ctx context.Context, company *Company) error {
 		updateCompanyQuery,
 		company.Name,
 		company.LogoURL,
-		company.Active,
+		company.IsActive,
 		company.ID,
 	).Scan(&company.UpdatedAt)
 
@@ -167,7 +166,7 @@ func (r *Repository) List(ctx context.Context) ([]*Company, error) {
 			&company.ID,
 			&company.Name,
 			&company.LogoURL,
-			&company.Active,
+			&company.IsActive,
 			&company.CreatedAt,
 			&company.UpdatedAt,
 		)
