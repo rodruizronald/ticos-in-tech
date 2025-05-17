@@ -30,6 +30,7 @@ CREATE TABLE technologies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     category VARCHAR(50) NOT NULL,
+    parent_id INT REFERENCES technologies(id),
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -46,7 +47,6 @@ CREATE TABLE job_technologies (
     id SERIAL PRIMARY KEY,
     job_id INT REFERENCES jobs(id) ON DELETE CASCADE,
     technology_id INT REFERENCES technologies(id) ON DELETE CASCADE,
-    is_primary BOOLEAN DEFAULT FALSE,
     is_required BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(job_id, technology_id)
@@ -73,15 +73,12 @@ CREATE INDEX idx_jobs_experience_level ON jobs(experience_level);
 -- Technologies Indexes
 CREATE UNIQUE INDEX idx_technologies_name ON technologies(name);
 CREATE INDEX idx_technologies_category ON technologies(category);
+CREATE INDEX idx_technologies_parent_id ON technologies(parent_id);
 
 -- Technology Aliases Indexes
 CREATE INDEX idx_technology_aliases_technology_id ON technology_aliases(technology_id);
 CREATE INDEX idx_technology_aliases_alias ON technology_aliases(alias);
 
--- Case-insensitive index for alias searches
-CREATE INDEX idx_technology_aliases_lower_alias ON technology_aliases(LOWER(alias));
-
 -- Job Technologies Indexes
 CREATE INDEX idx_job_technologies_job_id ON job_technologies(job_id);
 CREATE INDEX idx_job_technologies_technology_id ON job_technologies(technology_id);
-CREATE INDEX idx_job_technologies_primary ON job_technologies(job_id) WHERE is_primary = TRUE;
