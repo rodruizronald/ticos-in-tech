@@ -54,7 +54,7 @@ func TestRepository_Create(t *testing.T) {
 			checkResults: func(t *testing.T, result *Company, err error) {
 				var actualErr *ErrDuplicate
 				assert.Error(t, err)
-				assert.True(t, errors.As(err, &actualErr))
+				assert.ErrorAs(t, err, &actualErr)
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func TestRepository_Create(t *testing.T) {
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 	}
@@ -136,7 +136,7 @@ func TestRepository_GetByName(t *testing.T) {
 				assert.Nil(t, result)
 
 				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				assert.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},
@@ -151,7 +151,7 @@ func TestRepository_GetByName(t *testing.T) {
 			checkResults: func(t *testing.T, result *Company, err error) {
 				assert.Error(t, err)
 				assert.Nil(t, result)
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 	}
@@ -217,7 +217,7 @@ func TestRepository_Update(t *testing.T) {
 				assert.Error(t, err)
 
 				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				assert.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -242,7 +242,7 @@ func TestRepository_Update(t *testing.T) {
 				assert.Error(t, err)
 
 				var duplicateErr *ErrDuplicate
-				assert.True(t, errors.As(err, &duplicateErr))
+				assert.ErrorAs(t, err, &duplicateErr)
 				assert.Equal(t, "Duplicate Company", duplicateErr.Name)
 			},
 		},
@@ -261,7 +261,7 @@ func TestRepository_Update(t *testing.T) {
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
 				assert.Error(t, err)
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 	}
@@ -316,7 +316,7 @@ func TestRepository_Delete(t *testing.T) {
 				assert.Error(t, err)
 
 				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				assert.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -330,7 +330,7 @@ func TestRepository_Delete(t *testing.T) {
 			},
 			checkResults: func(t *testing.T, err error) {
 				assert.Error(t, err)
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 	}
@@ -410,7 +410,7 @@ func TestRepository_List(t *testing.T) {
 			checkResults: func(t *testing.T, companies []*Company, err error) {
 				assert.Error(t, err)
 				assert.Nil(t, companies)
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 		{
@@ -515,7 +515,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				assert.Nil(t, company)
 
 				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				assert.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},
@@ -540,7 +540,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			checkResults: func(t *testing.T, company *Company, err error) {
 				assert.Error(t, err)
 				assert.Nil(t, company)
-				assert.True(t, errors.Is(err, dbError))
+				assert.ErrorIs(t, err, dbError)
 			},
 		},
 		{
