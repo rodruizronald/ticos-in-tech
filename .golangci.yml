@@ -1,0 +1,71 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - misspell
+    - staticcheck
+    - bodyclose
+    - errorlint
+    - errname
+    - paralleltest
+    - tparallel
+    - thelper
+    - sqlclosecheck
+    - noctx
+    - testifylint
+    - iface
+    - revive
+    - gocritic
+    # Fast Linter
+    - lll
+    - cyclop
+    - gocognit
+    - goconst
+    - inamedparam
+    - decorder
+  settings:
+    govet:
+      shadow: true
+    misspell:
+      locale: US
+    gocritic:
+      enabled-tags:
+        - diagnostic  
+        - style
+        - performance
+    errcheck:
+      # Exclude checking of errors assigned to blank identifier (e.g., _ = fmt.Printf(""))
+      exclude-blank: true 
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: github.com/rodruizronald/ticos-in-tech # Helps sort local imports
+
+issues:
+  exclude-dirs:
+      - migrations
+      - scripts
+      - venv
+      - .github
+  exclude-files:
+      - ".*_generated\\.go$"
+  exclude-rules:
+    # Exclude specific linters from test files
+    - path: _test\.go
+      linters:
+        - gocyclo # Test functions can sometimes be more complex
+
+  exclude-use-default: false
+
+  # Max issues per linter / same issues (0 for unlimited)
+  max-issues-per-linter: 0
+  max-same-issues: 0
