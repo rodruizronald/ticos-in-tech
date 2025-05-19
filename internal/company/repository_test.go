@@ -15,6 +15,7 @@ import (
 )
 
 func TestRepository_Create(t *testing.T) {
+	t.Parallel()
 	dbError := errors.New("database error")
 	tests := []struct {
 		name         string
@@ -30,12 +31,14 @@ func TestRepository_Create(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(createCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive).
 					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.Equal(t, 1, result.ID)
 			},
 		},
@@ -47,14 +50,15 @@ func TestRepository_Create(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(createCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive).
 					WillReturnError(&pgconn.PgError{Code: "23505"})
 			},
-			checkResults: func(t *testing.T, result *Company, err error) {
-				var actualErr *ErrDuplicate
-				assert.Error(t, err)
-				assert.True(t, errors.As(err, &actualErr))
+			checkResults: func(t *testing.T, _ *Company, err error) {
+				t.Helper()
+				require.Error(t, err)
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 		{
@@ -65,17 +69,20 @@ func TestRepository_Create(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(createCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive).
 					WillReturnError(dbError)
 			},
-			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.True(t, errors.Is(err, dbError))
+			checkResults: func(t *testing.T, _ *Company, err error) {
+				t.Helper()
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -86,12 +93,13 @@ func TestRepository_Create(t *testing.T) {
 			err = repo.Create(context.Background(), tt.company)
 			tt.checkResults(t, tt.company, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestRepository_GetByName(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	dbError := errors.New("database error")
 	tests := []struct {
@@ -104,6 +112,7 @@ func TestRepository_GetByName(t *testing.T) {
 			name:        "company found",
 			companyName: "Test Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
 					WillReturnRows(pgxmock.NewRows([]string{
@@ -113,7 +122,8 @@ func TestRepository_GetByName(t *testing.T) {
 					))
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.NotNil(t, result)
 				assert.Equal(t, 1, result.ID)
 				assert.Equal(t, "Test Company", result.Name)
@@ -127,16 +137,18 @@ func TestRepository_GetByName(t *testing.T) {
 			name:        "company not found",
 			companyName: "Nonexistent Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
 					WillReturnError(pgx.ErrNoRows)
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, result)
 
-				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				var notFoundErr *NotFoundError
+				require.ErrorIs(t, err, dbError)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},
@@ -144,19 +156,22 @@ func TestRepository_GetByName(t *testing.T) {
 			name:        "database error",
 			companyName: "Error Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, result)
-				assert.True(t, errors.Is(err, dbError))
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -167,12 +182,13 @@ func TestRepository_GetByName(t *testing.T) {
 			result, err := repo.GetByName(context.Background(), tt.companyName)
 			tt.checkResults(t, result, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestRepository_Update(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	dbError := errors.New("database error")
 
@@ -191,12 +207,14 @@ func TestRepository_Update(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(updateCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive, company.ID).
 					WillReturnRows(pgxmock.NewRows([]string{"updated_at"}).AddRow(now))
 			},
 			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.Equal(t, now, result.UpdatedAt)
 			},
 		},
@@ -209,15 +227,17 @@ func TestRepository_Update(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(updateCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive, company.ID).
 					WillReturnError(pgx.ErrNoRows)
 			},
-			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.Error(t, err)
+			checkResults: func(t *testing.T, _ *Company, err error) {
+				t.Helper()
+				require.Error(t, err)
 
-				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				var notFoundErr *NotFoundError
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -230,6 +250,7 @@ func TestRepository_Update(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				pgErr := &pgconn.PgError{
 					Code:           "23505",
 					ConstraintName: "companies_name_key",
@@ -238,11 +259,12 @@ func TestRepository_Update(t *testing.T) {
 					WithArgs(company.Name, company.LogoURL, company.IsActive, company.ID).
 					WillReturnError(pgErr)
 			},
-			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.Error(t, err)
+			checkResults: func(t *testing.T, _ *Company, err error) {
+				t.Helper()
+				require.Error(t, err)
 
-				var duplicateErr *ErrDuplicate
-				assert.True(t, errors.As(err, &duplicateErr))
+				var duplicateErr *DuplicateError
+				require.ErrorAs(t, err, &duplicateErr)
 				assert.Equal(t, "Duplicate Company", duplicateErr.Name)
 			},
 		},
@@ -255,19 +277,22 @@ func TestRepository_Update(t *testing.T) {
 				IsActive: true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, company *Company) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(updateCompanyQuery)).
 					WithArgs(company.Name, company.LogoURL, company.IsActive, company.ID).
 					WillReturnError(dbError)
 			},
-			checkResults: func(t *testing.T, result *Company, err error) {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, dbError))
+			checkResults: func(t *testing.T, _ *Company, err error) {
+				t.Helper()
+				require.Error(t, err)
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -278,12 +303,13 @@ func TestRepository_Update(t *testing.T) {
 			err = repo.Update(context.Background(), tt.company)
 			tt.checkResults(t, tt.company, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestRepository_Delete(t *testing.T) {
+	t.Parallel()
 	dbError := errors.New("database error")
 
 	tests := []struct {
@@ -296,27 +322,31 @@ func TestRepository_Delete(t *testing.T) {
 			name:      "successful deletion",
 			companyID: 1,
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyID int) {
+				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(deleteCompanyQuery)).
 					WithArgs(companyID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			},
 			checkResults: func(t *testing.T, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 			},
 		},
 		{
 			name:      "company not found",
 			companyID: 999,
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyID int) {
+				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(deleteCompanyQuery)).
 					WithArgs(companyID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 0))
 			},
 			checkResults: func(t *testing.T, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 
-				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				var notFoundErr *NotFoundError
+				require.ErrorIs(t, err, dbError)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -324,19 +354,22 @@ func TestRepository_Delete(t *testing.T) {
 			name:      "database error",
 			companyID: 2,
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyID int) {
+				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(deleteCompanyQuery)).
 					WithArgs(companyID).
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, dbError))
+				t.Helper()
+				require.Error(t, err)
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -347,12 +380,13 @@ func TestRepository_Delete(t *testing.T) {
 			err = repo.Delete(context.Background(), tt.companyID)
 			tt.checkResults(t, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestRepository_List(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	dbError := errors.New("database error")
 
@@ -364,6 +398,7 @@ func TestRepository_List(t *testing.T) {
 		{
 			name: "successful listing with results",
 			mockSetup: func(mock pgxmock.PgxPoolIface) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
 					WillReturnRows(pgxmock.NewRows([]string{
 						"id", "name", "logo_url", "active", "created_at", "updated_at",
@@ -374,7 +409,8 @@ func TestRepository_List(t *testing.T) {
 					))
 			},
 			checkResults: func(t *testing.T, companies []*Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.Len(t, companies, 2)
 
 				assert.Equal(t, 1, companies[0].ID)
@@ -391,31 +427,36 @@ func TestRepository_List(t *testing.T) {
 		{
 			name: "successful listing with no results",
 			mockSetup: func(mock pgxmock.PgxPoolIface) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
 					WillReturnRows(pgxmock.NewRows([]string{
 						"id", "name", "logo_url", "active", "created_at", "updated_at",
 					}))
 			},
 			checkResults: func(t *testing.T, companies []*Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.Empty(t, companies)
 			},
 		},
 		{
 			name: "database error",
 			mockSetup: func(mock pgxmock.PgxPoolIface) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, companies []*Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, companies)
-				assert.True(t, errors.Is(err, dbError))
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 		{
 			name: "scan error",
 			mockSetup: func(mock pgxmock.PgxPoolIface) {
+				t.Helper()
 				// Return mismatched column count to cause scan error
 				mock.ExpectQuery(regexp.QuoteMeta(listCompaniesQuery)).
 					WillReturnRows(pgxmock.NewRows([]string{
@@ -425,7 +466,8 @@ func TestRepository_List(t *testing.T) {
 					))
 			},
 			checkResults: func(t *testing.T, companies []*Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, companies)
 				assert.Contains(t, err.Error(), "scan")
 			},
@@ -434,6 +476,7 @@ func TestRepository_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -444,12 +487,13 @@ func TestRepository_List(t *testing.T) {
 			companies, err := repo.List(context.Background())
 			tt.checkResults(t, companies, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestRepository_GetWithJobs(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	dbError := errors.New("database error")
 
@@ -463,6 +507,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			name:        "successful retrieval with jobs",
 			companyName: "Test Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				// First query to get the company
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
@@ -487,7 +532,8 @@ func TestRepository_GetWithJobs(t *testing.T) {
 					))
 			},
 			checkResults: func(t *testing.T, company *Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.NotNil(t, company)
 				assert.Equal(t, 1, company.ID)
 				assert.Equal(t, "Test Company", company.Name)
@@ -506,16 +552,18 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			name:        "company not found",
 			companyName: "Nonexistent Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
 					WillReturnError(pgx.ErrNoRows)
 			},
 			checkResults: func(t *testing.T, company *Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, company)
 
-				var notFoundErr *ErrNotFound
-				assert.True(t, errors.As(err, &notFoundErr))
+				var notFoundErr *NotFoundError
+				require.ErrorIs(t, err, dbError)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},
@@ -523,6 +571,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			name:        "company found but error fetching jobs",
 			companyName: "Test Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				// First query to get the company
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
@@ -538,15 +587,17 @@ func TestRepository_GetWithJobs(t *testing.T) {
 					WillReturnError(dbError)
 			},
 			checkResults: func(t *testing.T, company *Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, company)
-				assert.True(t, errors.Is(err, dbError))
+				require.ErrorIs(t, err, dbError)
 			},
 		},
 		{
 			name:        "company found with no jobs",
 			companyName: "Test Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				// First query to get the company
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
@@ -565,7 +616,8 @@ func TestRepository_GetWithJobs(t *testing.T) {
 					}))
 			},
 			checkResults: func(t *testing.T, company *Company, err error) {
-				assert.NoError(t, err)
+				t.Helper()
+				require.NoError(t, err)
 				assert.NotNil(t, company)
 				assert.Equal(t, 1, company.ID)
 				assert.Equal(t, "Test Company", company.Name)
@@ -576,6 +628,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			name:        "scan error in jobs",
 			companyName: "Test Company",
 			mockSetup: func(mock pgxmock.PgxPoolIface, companyName string) {
+				t.Helper()
 				// First query to get the company
 				mock.ExpectQuery(regexp.QuoteMeta(getCompanyByNameQuery)).
 					WithArgs(companyName).
@@ -595,7 +648,8 @@ func TestRepository_GetWithJobs(t *testing.T) {
 					))
 			},
 			checkResults: func(t *testing.T, company *Company, err error) {
-				assert.Error(t, err)
+				t.Helper()
+				require.Error(t, err)
 				assert.Nil(t, company)
 				assert.Contains(t, err.Error(), "scan")
 			},
@@ -604,6 +658,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockDB, err := pgxmock.NewPool()
 			require.NoError(t, err)
 			defer mockDB.Close()
@@ -614,7 +669,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 			company, err := repo.GetWithJobs(context.Background(), tt.companyName)
 			tt.checkResults(t, company, err)
 
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
 }

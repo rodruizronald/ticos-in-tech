@@ -32,7 +32,7 @@ func DefaultConfig() Config {
 }
 
 // ConnectionString returns a PostgreSQL connection string based on the configuration.
-func (c Config) ConnectionString() string {
+func (c *Config) ConnectionString() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		c.User, c.Password, c.Host, c.Port, c.DBName, c.SSLMode,
@@ -40,7 +40,7 @@ func (c Config) ConnectionString() string {
 }
 
 // Connect establishes a connection to the PostgreSQL database.
-func Connect(ctx context.Context, config Config) (*pgxpool.Pool, error) {
+func Connect(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	connString := config.ConnectionString()
 
 	poolConfig, err := pgxpool.ParseConfig(connString)

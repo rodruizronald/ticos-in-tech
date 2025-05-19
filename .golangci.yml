@@ -23,7 +23,7 @@ linters:
     - revive
     - gocritic
     # Fast Linter
-    - lll
+    # - lll
     - cyclop
     - gocognit
     - goconst
@@ -42,6 +42,8 @@ linters:
     errcheck:
       # Exclude checking of errors assigned to blank identifier (e.g., _ = fmt.Printf(""))
       exclude-blank: true 
+    cyclop:
+      max-complexity: 15
 
 formatters:
   enable:

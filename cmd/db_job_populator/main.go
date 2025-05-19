@@ -1,3 +1,4 @@
+// Some comments
 package main
 
 // type JobData struct {
@@ -104,7 +105,7 @@ package main
 
 //         log.Infof("Successfully added job: %s at %s (ID: %d)", jobModel.Title, j.Company, jobModel.ID)
 
-//         // TODO: Add job technologies using job_technology repository
+//         // TODO: Add job technologies using jobtech repository
 //     }
 
 //     log.Info("Job population completed")

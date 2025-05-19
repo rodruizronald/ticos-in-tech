@@ -1,4 +1,4 @@
-package job_technology
+package jobtech
 
 import (
 	"time"

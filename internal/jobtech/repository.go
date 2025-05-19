@@ -1,4 +1,4 @@
-package job_technology
+package jobtech
 
 import (
 	"context"
@@ -48,9 +48,9 @@ const (
 
 // Database interface to support pgxpool and mocks
 type Database interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
 }
 
 // Repository handles database operations for the JobTechnology model.
@@ -78,7 +78,7 @@ func (r *Repository) Create(ctx context.Context, jobTech *JobTechnology) error {
 		// Check for unique constraint violation (duplicate job-technology association)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{
+			return &DuplicateError{
 				JobID:        jobTech.JobID,
 				TechnologyID: jobTech.TechnologyID,
 			}
@@ -103,7 +103,7 @@ func (r *Repository) GetByJobAndTechnology(ctx context.Context, jobID, technolog
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{
+			return nil, &NotFoundError{
 				JobID:        jobID,
 				TechnologyID: technologyID,
 			}
@@ -128,7 +128,7 @@ func (r *Repository) Update(ctx context.Context, jobTech *JobTechnology) error {
 		// Check for unique constraint violation (duplicate job-technology association)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{
+			return &DuplicateError{
 				JobID:        jobTech.JobID,
 				TechnologyID: jobTech.TechnologyID,
 			}
@@ -137,7 +137,7 @@ func (r *Repository) Update(ctx context.Context, jobTech *JobTechnology) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: jobTech.ID}
+		return &NotFoundError{ID: jobTech.ID}
 	}
 
 	return nil
@@ -151,7 +151,7 @@ func (r *Repository) Delete(ctx context.Context, id int) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: id}
+		return &NotFoundError{ID: id}
 	}
 
 	return nil

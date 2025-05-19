@@ -1,4 +1,4 @@
-package technology_alias
+package techalias
 
 import (
 	"time"

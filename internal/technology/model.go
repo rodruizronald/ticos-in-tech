@@ -3,8 +3,8 @@ package technology
 import (
 	"time"
 
-	"github.com/rodruizronald/ticos-in-tech/internal/job_technology"
-	"github.com/rodruizronald/ticos-in-tech/internal/technology_alias"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
+	"github.com/rodruizronald/ticos-in-tech/internal/techalias"
 )
 
 // Technology represents a technology skill (programming language, framework, tool, etc.)
@@ -17,6 +17,6 @@ type Technology struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 
 	// Relationships (not stored in database)
-	Aliases []technology_alias.TechnologyAlias `json:"aliases,omitempty" db:"-"`
-	Jobs    []job_technology.JobTechnology     `json:"jobs,omitempty" db:"-"`
+	Aliases []techalias.TechnologyAlias `json:"aliases,omitempty" db:"-"`
+	Jobs    []jobtech.JobTechnology     `json:"jobs,omitempty" db:"-"`
 }
