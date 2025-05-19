@@ -58,7 +58,8 @@ func TestRepository_Create(t *testing.T) {
 			checkResults: func(t *testing.T, _ *Company, err error) {
 				t.Helper()
 				require.Error(t, err)
-				require.ErrorIs(t, err, dbError)
+				var duplicateErr *DuplicateError
+				require.ErrorAs(t, err, &duplicateErr)
 			},
 		},
 		{
@@ -148,7 +149,7 @@ func TestRepository_GetByName(t *testing.T) {
 				assert.Nil(t, result)
 
 				var notFoundErr *NotFoundError
-				require.ErrorIs(t, err, dbError)
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},
@@ -346,7 +347,7 @@ func TestRepository_Delete(t *testing.T) {
 				require.Error(t, err)
 
 				var notFoundErr *NotFoundError
-				require.ErrorIs(t, err, dbError)
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -563,7 +564,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				assert.Nil(t, company)
 
 				var notFoundErr *NotFoundError
-				require.ErrorIs(t, err, dbError)
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, "Nonexistent Company", notFoundErr.Name)
 			},
 		},

@@ -387,7 +387,7 @@ func TestRepository_GetByID(t *testing.T) {
 				assert.Nil(t, result)
 
 				var notFoundErr *NotFoundError
-				require.ErrorIs(t, err, dbError)
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
@@ -662,7 +662,7 @@ func TestRepository_Delete(t *testing.T) {
 				require.Error(t, err)
 
 				var notFoundErr *NotFoundError
-				require.ErrorIs(t, err, dbError)
+				require.ErrorAs(t, err, &notFoundErr)
 				assert.Equal(t, 999, notFoundErr.ID)
 			},
 		},
