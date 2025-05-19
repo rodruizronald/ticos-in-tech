@@ -72,8 +72,6 @@ formatters:
       - ".*_generated\\.go$"  # Exclude generated files from formatting
 
 issues:
-  exclude-use-default: false
-
   # Max issues per linter / same issues (0 for unlimited)
   max-issues-per-linter: 0
   max-same-issues: 0
