@@ -1,33 +1,38 @@
+// Package job provides functionality for managing company entities
+// including CRUD operations, error handling, and business logic.
 package job
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-// ErrNotFound represents a job not found error
-type ErrNotFound struct {
-    ID int
+// NotFoundError represents a job not found error
+type NotFoundError struct {
+	ID int
 }
 
-func (e ErrNotFound) Error() string {
-    return fmt.Sprintf("job with ID %d not found", e.ID)
-}
-
-// ErrDuplicate represents a duplicate job error
-type ErrDuplicate struct {
-    Signature string
-}
-
-func (e ErrDuplicate) Error() string {
-    return fmt.Sprintf("job with signature %s already exists", e.Signature)
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("job with ID %d not found", e.ID)
 }
 
 // IsNotFound checks if an error is a job not found error
 func IsNotFound(err error) bool {
-    _, ok := err.(*ErrNotFound)
-    return ok
+	var notFoundErr *NotFoundError
+	return errors.As(err, &notFoundErr)
+}
+
+// DuplicateError represents a duplicate job error
+type DuplicateError struct {
+	Signature string
+}
+
+func (e DuplicateError) Error() string {
+	return fmt.Sprintf("job with signature %s already exists", e.Signature)
 }
 
 // IsDuplicate checks if an error is a duplicate job error
 func IsDuplicate(err error) bool {
-    _, ok := err.(*ErrDuplicate)
-    return ok
+	var duplicateErr *DuplicateError
+	return errors.As(err, &duplicateErr)
 }

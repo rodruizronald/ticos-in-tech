@@ -3,7 +3,7 @@ package job
 import (
 	"time"
 
-	"github.com/rodruizronald/ticos-in-tech/internal/job_technology"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )
 
 // Job represents a job posting on the platform.
@@ -23,5 +23,5 @@ type Job struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
 	// Relationships (not stored in database)
-	Technologies []job_technology.JobTechnology `json:"technologies,omitempty" db:"-"`
+	Technologies []jobtech.JobTechnology `json:"technologies,omitempty" db:"-"`
 }

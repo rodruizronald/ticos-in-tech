@@ -1,15 +1,20 @@
-package job_technology
+// Package jobtech provides functionality for managing company entities
+// including CRUD operations, error handling, and business logic.
+package jobtech
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-// ErrNotFound represents a job technology association not found error
-type ErrNotFound struct {
+// NotFoundError represents a job technology association not found error
+type NotFoundError struct {
 	ID           int
 	JobID        int
 	TechnologyID int
 }
 
-func (e ErrNotFound) Error() string {
+func (e NotFoundError) Error() string {
 	if e.ID > 0 {
 		return fmt.Sprintf("job technology with ID %d not found", e.ID)
 	}
@@ -18,22 +23,22 @@ func (e ErrNotFound) Error() string {
 
 // IsNotFound checks if an error is a job technology not found error
 func IsNotFound(err error) bool {
-	_, ok := err.(*ErrNotFound)
-	return ok
+	var notFoundErr *NotFoundError
+	return errors.As(err, &notFoundErr)
 }
 
-// ErrDuplicate represents a duplicate job technology association error
-type ErrDuplicate struct {
+// DuplicateError represents a duplicate job technology association error
+type DuplicateError struct {
 	JobID        int
 	TechnologyID int
 }
 
-func (e ErrDuplicate) Error() string {
+func (e DuplicateError) Error() string {
 	return fmt.Sprintf("job technology association for job %d and technology %d already exists", e.JobID, e.TechnologyID)
 }
 
 // IsDuplicate checks if an error is a duplicate job technology error
 func IsDuplicate(err error) bool {
-	_, ok := err.(*ErrDuplicate)
-	return ok
+	var duplicateErr *DuplicateError
+	return errors.As(err, &duplicateErr)
 }

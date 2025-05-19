@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/rodruizronald/ticos-in-tech/internal/job"
 )
 
@@ -50,9 +51,9 @@ const (
 
 // Database interface to support pgxpool and mocks
 type Database interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
 }
 
 // Repository handles database operations for the Company model.
@@ -79,7 +80,7 @@ func (r *Repository) Create(ctx context.Context, company *Company) error {
 		// Check for unique constraint violation (duplicate company name)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Name: company.Name}
+			return &DuplicateError{Name: company.Name}
 		}
 		return fmt.Errorf("failed to create company: %w", err)
 	}
@@ -101,7 +102,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Company, erro
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{Name: name}
+			return nil, &NotFoundError{Name: name}
 		}
 		return nil, fmt.Errorf("failed to get company: %w", err)
 	}
@@ -122,13 +123,13 @@ func (r *Repository) Update(ctx context.Context, company *Company) error {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &ErrNotFound{ID: company.ID}
+			return &NotFoundError{ID: company.ID}
 		}
 
 		// Check for unique constraint violation (duplicate company name)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Name: company.Name}
+			return &DuplicateError{Name: company.Name}
 		}
 
 		return fmt.Errorf("failed to update company: %w", err)
@@ -145,7 +146,7 @@ func (r *Repository) Delete(ctx context.Context, id int) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: id}
+		return &NotFoundError{ID: id}
 	}
 
 	return nil
@@ -198,26 +199,26 @@ func (r *Repository) GetWithJobs(ctx context.Context, name string) (*Company, er
 
 	var jobs []job.Job
 	for rows.Next() {
-		job := job.Job{}
+		gotJob := job.Job{}
 		err := rows.Scan(
-			&job.ID,
-			&job.CompanyID,
-			&job.Title,
-			&job.Description,
-			&job.ExperienceLevel,
-			&job.EmploymentType,
-			&job.Location,
-			&job.WorkMode,
-			&job.ApplicationURL,
-			&job.IsActive,
-			&job.Signature,
-			&job.CreatedAt,
-			&job.UpdatedAt,
+			&gotJob.ID,
+			&gotJob.CompanyID,
+			&gotJob.Title,
+			&gotJob.Description,
+			&gotJob.ExperienceLevel,
+			&gotJob.EmploymentType,
+			&gotJob.Location,
+			&gotJob.WorkMode,
+			&gotJob.ApplicationURL,
+			&gotJob.IsActive,
+			&gotJob.Signature,
+			&gotJob.CreatedAt,
+			&gotJob.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job row: %w", err)
 		}
-		jobs = append(jobs, job)
+		jobs = append(jobs, gotJob)
 	}
 
 	if err := rows.Err(); err != nil {

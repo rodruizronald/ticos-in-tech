@@ -1,8 +1,13 @@
+// Package main provides a utility to populate the database with company information.
+// It reads from a JSON file of companies and inserts them into the database.
 package main
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -11,33 +16,48 @@ import (
 	"github.com/rodruizronald/ticos-in-tech/internal/database"
 )
 
+// Company represents a company entity as stored in the JSON configuration file.
+// It contains the basic information needed to create a company record in the database.
 type Company struct {
-	Name    string
-	LogoURL string
-}
-
-var companies = []Company{
-	{Name: "Growth Acceleration Partners", LogoURL: "https://example.com/logo1.png"},
+	Name    string `json:"name"`
+	LogoURL string `json:"logo_url"`
 }
 
 func main() {
+	var err error
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer func() {
+		stop()
+		if err != nil {
+			os.Exit(1)
+		}
+	}()
+	err = run(ctx)
+}
+
+func run(ctx context.Context) error {
 	// Initialize logger
 	log := logrus.New()
 	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
-	// Set up database connection
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	// Read companies from JSON file
+	companies, err := readCompaniesFromJSON()
+	if err != nil {
+		log.Errorf("Failed to read companies from JSON: %v", err)
+		return err
+	}
+	log.Infof("Loaded %d companies from JSON file", len(companies))
 
 	// Get database config
 	dbConfig := database.DefaultConfig()
 
 	// Connect to the database
-	dbpool, err := database.Connect(ctx, dbConfig)
+	dbpool, err := database.Connect(ctx, &dbConfig)
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
+		log.Errorf("Unable to connect to database: %v", err)
+		return err
 	}
 	defer dbpool.Close()
 
@@ -66,4 +86,37 @@ func main() {
 	}
 
 	log.Info("Company population completed")
+	return nil
+}
+
+// readCompaniesFromJSON reads the companies data from a JSON file
+func readCompaniesFromJSON() ([]Company, error) {
+	// Get the directory of the current executable
+	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return nil, err
+	}
+
+	// Path to the JSON file
+	jsonPath := filepath.Join(execDir, "companies.json")
+
+	// For development, if the file doesn't exist in the executable directory,
+	// try looking in the current directory
+	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
+		jsonPath = "companies.json"
+	}
+
+	// Read the JSON file
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the JSON data
+	var companies []Company
+	if err := json.Unmarshal(data, &companies); err != nil {
+		return nil, err
+	}
+
+	return companies, nil
 }

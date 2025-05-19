@@ -1,4 +1,4 @@
-package technology_alias
+package techalias
 
 import (
 	"context"
@@ -47,9 +47,9 @@ const (
 
 // Database interface to support pgxpool and mocks
 type Database interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
 }
 
 // Repository handles database operations for the TechnologyAlias model.
@@ -75,7 +75,7 @@ func (r *Repository) Create(ctx context.Context, alias *TechnologyAlias) error {
 		// Check for unique constraint violation (duplicate alias)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Alias: alias.Alias}
+			return &DuplicateError{Alias: alias.Alias}
 		}
 		return fmt.Errorf("failed to create technology alias: %w", err)
 	}
@@ -95,7 +95,7 @@ func (r *Repository) GetByID(ctx context.Context, id int) (*TechnologyAlias, err
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{ID: id}
+			return nil, &NotFoundError{ID: id}
 		}
 		return nil, fmt.Errorf("failed to get technology alias: %w", err)
 	}
@@ -115,7 +115,7 @@ func (r *Repository) GetByAlias(ctx context.Context, aliasValue string) (*Techno
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{Alias: aliasValue}
+			return nil, &NotFoundError{Alias: aliasValue}
 		}
 		return nil, fmt.Errorf("failed to get technology alias: %w", err)
 	}
@@ -136,13 +136,13 @@ func (r *Repository) Update(ctx context.Context, alias *TechnologyAlias) error {
 		// Check for unique constraint violation (duplicate alias)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Alias: alias.Alias}
+			return &DuplicateError{Alias: alias.Alias}
 		}
 		return fmt.Errorf("failed to update technology alias: %w", err)
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: alias.ID}
+		return &NotFoundError{ID: alias.ID}
 	}
 
 	return nil
@@ -156,7 +156,7 @@ func (r *Repository) Delete(ctx context.Context, id int) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: id}
+		return &NotFoundError{ID: id}
 	}
 
 	return nil

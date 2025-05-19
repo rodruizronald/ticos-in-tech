@@ -7,8 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/rodruizronald/ticos-in-tech/internal/job_technology"
-	"github.com/rodruizronald/ticos-in-tech/internal/technology_alias"
+
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
+	"github.com/rodruizronald/ticos-in-tech/internal/techalias"
 )
 
 // SQL query constants
@@ -56,9 +57,9 @@ const (
 
 // Database interface to support pgxpool and mocks
 type Database interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
 }
 
 // Repository handles database operations for the Technology model.
@@ -85,7 +86,7 @@ func (r *Repository) Create(ctx context.Context, tech *Technology) error {
 		// Check for unique constraint violation (duplicate technology name)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Name: tech.Name}
+			return &DuplicateError{Name: tech.Name}
 		}
 		return fmt.Errorf("failed to create technology: %w", err)
 	}
@@ -106,7 +107,7 @@ func (r *Repository) GetByID(ctx context.Context, id int) (*Technology, error) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{ID: id}
+			return nil, &NotFoundError{ID: id}
 		}
 		return nil, fmt.Errorf("failed to get technology: %w", err)
 	}
@@ -127,7 +128,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Technology, e
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &ErrNotFound{Name: name}
+			return nil, &NotFoundError{Name: name}
 		}
 		return nil, fmt.Errorf("failed to get technology: %w", err)
 	}
@@ -150,13 +151,13 @@ func (r *Repository) Update(ctx context.Context, tech *Technology) error {
 		// Check for unique constraint violation (duplicate technology name)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &ErrDuplicate{Name: tech.Name}
+			return &DuplicateError{Name: tech.Name}
 		}
 		return fmt.Errorf("failed to update technology: %w", err)
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: tech.ID}
+		return &NotFoundError{ID: tech.ID}
 	}
 
 	return nil
@@ -170,7 +171,7 @@ func (r *Repository) Delete(ctx context.Context, id int) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return &ErrNotFound{ID: id}
+		return &NotFoundError{ID: id}
 	}
 
 	return nil
@@ -189,9 +190,9 @@ func (r *Repository) GetWithAliases(ctx context.Context, id int) (*Technology, e
 	}
 	defer rows.Close()
 
-	var aliases []technology_alias.TechnologyAlias
+	var aliases []techalias.TechnologyAlias
 	for rows.Next() {
-		alias := technology_alias.TechnologyAlias{}
+		alias := techalias.TechnologyAlias{}
 		err := rows.Scan(
 			&alias.ID,
 			&alias.TechnologyID,
@@ -225,9 +226,9 @@ func (r *Repository) GetWithJobs(ctx context.Context, id int) (*Technology, erro
 	}
 	defer rows.Close()
 
-	var jobs []job_technology.JobTechnology
+	var jobs []jobtech.JobTechnology
 	for rows.Next() {
-		job := job_technology.JobTechnology{}
+		job := jobtech.JobTechnology{}
 		err := rows.Scan(
 			&job.ID,
 			&job.JobID,
