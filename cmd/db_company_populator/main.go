@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 			IsActive: true,
 		}
 
-		err := repo.Create(ctx, cm)
+		err = repo.Create(ctx, cm)
 		if err != nil {
 			if company.IsDuplicate(err) {
 				log.Infof("Company already exists: %s", cm.Name)
@@ -102,7 +102,7 @@ func readCompaniesFromJSON() ([]Company, error) {
 
 	// For development, if the file doesn't exist in the executable directory,
 	// try looking in the current directory
-	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
+	if _, err = os.Stat(jsonPath); os.IsNotExist(err) {
 		jsonPath = "companies.json"
 	}
 

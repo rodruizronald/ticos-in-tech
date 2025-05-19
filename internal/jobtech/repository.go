@@ -168,7 +168,7 @@ func (r *Repository) ListByJob(ctx context.Context, jobID int) ([]*JobTechnology
 	var jobTechnologies []*JobTechnology
 	for rows.Next() {
 		jobTech := &JobTechnology{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&jobTech.ID,
 			&jobTech.JobID,
 			&jobTech.TechnologyID,
@@ -182,7 +182,7 @@ func (r *Repository) ListByJob(ctx context.Context, jobID int) ([]*JobTechnology
 		jobTechnologies = append(jobTechnologies, jobTech)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating job technology rows: %w", err)
 	}
 
@@ -200,7 +200,7 @@ func (r *Repository) ListByTechnology(ctx context.Context, technologyID int) ([]
 	var jobTechnologies []*JobTechnology
 	for rows.Next() {
 		jobTech := &JobTechnology{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&jobTech.ID,
 			&jobTech.JobID,
 			&jobTech.TechnologyID,
@@ -214,7 +214,7 @@ func (r *Repository) ListByTechnology(ctx context.Context, technologyID int) ([]
 		jobTechnologies = append(jobTechnologies, jobTech)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating technology job rows: %w", err)
 	}
 

@@ -173,7 +173,7 @@ func (r *Repository) ListByTechnologyID(ctx context.Context, technologyID int) (
 	var aliases []*TechnologyAlias
 	for rows.Next() {
 		alias := &TechnologyAlias{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&alias.ID,
 			&alias.TechnologyID,
 			&alias.Alias,
@@ -185,7 +185,7 @@ func (r *Repository) ListByTechnologyID(ctx context.Context, technologyID int) (
 		aliases = append(aliases, alias)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating technology alias rows: %w", err)
 	}
 
