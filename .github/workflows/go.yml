@@ -18,6 +18,16 @@ jobs:
     
     - name: Install dependencies
       run: go mod download
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v7
+      with:
+        # Optional: golangci-lint version to use. The default is the latest stable release.
+        version: v2.1.6
+
+        # The mode to install golangci-lint. It can be 'binary' or 'goinstall'.
+        # We recommend using the default "binary" install mode for speed and reliability.
+        install-mode: "binary"
       
     - name: Build
       run: go build -v ./...

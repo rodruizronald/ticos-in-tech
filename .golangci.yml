@@ -23,7 +23,7 @@ linters:
     - revive
     - gocritic
     # Fast Linter
-    # - lll
+    - lll
     - cyclop
     - gocognit
     - goconst
