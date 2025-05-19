@@ -70,12 +70,14 @@ func run(ctx context.Context) error {
 }
 
 // processTechnologies handles the two-pass technology import process
-func processTechnologies(ctx context.Context, log *logrus.Logger, techRepo *technology.Repository, aliasRepo *techalias.Repository) {
+func processTechnologies(ctx context.Context, log *logrus.Logger, techRepo *technology.Repository,
+	aliasRepo *techalias.Repository) {
 	// Create a map to store all technologies by name for lookup
 	techMap := make(map[string]*technology.Technology)
 
 	// Process and insert all technologies
 	technologies := readTechnologiesFromJSON()
+	log.Infof("Loaded %d technologies from JSON file", len(technologies))
 
 	// First pass: create technologies without parent references
 	log.Info("Starting first pass: creating technologies without parent references")
@@ -88,94 +90,91 @@ func processTechnologies(ctx context.Context, log *logrus.Logger, techRepo *tech
 
 // createTechnologies handles the first pass of creating technologies
 func createTechnologies(ctx context.Context, log *logrus.Logger, techRepo *technology.Repository,
-	aliasRepo *techalias.Repository, technologies [][]Technology, techMap map[string]*technology.Technology) {
+	aliasRepo *techalias.Repository, technologies []Technology, techMap map[string]*technology.Technology) {
 
-	for _, techGroup := range technologies {
-		for _, tech := range techGroup {
-			// Convert name to lowercase
-			techName := strings.ToLower(tech.Name)
+	for _, tech := range technologies {
+		// Convert name to lowercase
+		techName := strings.ToLower(tech.Name)
 
-			// Create the technology model
-			newTech := &technology.Technology{
-				Name:     techName,
-				Category: tech.Category,
-				// Parent ID will be set in the second pass
-			}
+		// Create the technology model
+		newTech := &technology.Technology{
+			Name:     techName,
+			Category: tech.Category,
+			// Parent ID will be set in the second pass
+		}
 
-			// Insert into database
-			err := techRepo.Create(ctx, newTech)
-			if err != nil {
-				// Skip if it's a duplicate
-				if technology.IsDuplicate(err) {
-					log.Infof("Technology already exists: %s", techName)
+		// Insert into database
+		err := techRepo.Create(ctx, newTech)
+		if err != nil {
+			// Skip if it's a duplicate
+			if technology.IsDuplicate(err) {
+				log.Infof("Technology already exists: %s", techName)
 
-					// Fetch the existing technology to use for parent mapping
-					existingTech, err := techRepo.GetByName(ctx, techName)
-					if err != nil {
-						log.Warnf("Error fetching existing technology %s: %v", techName, err)
-						continue
-					}
-					techMap[techName] = existingTech
-
-					// Add aliases for existing technology
-					addAliases(ctx, log, aliasRepo, existingTech.ID, tech.Alias)
+				// Fetch the existing technology to use for parent mapping
+				existingTech, err := techRepo.GetByName(ctx, techName)
+				if err != nil {
+					log.Warnf("Error fetching existing technology %s: %v", techName, err)
 					continue
 				}
-				log.Warnf("Error creating technology %s: %v", techName, err)
+				techMap[techName] = existingTech
+
+				// Add aliases for existing technology
+				addAliases(ctx, log, aliasRepo, existingTech.ID, tech.Alias)
 				continue
 			}
-
-			log.Infof("Created technology: %s (ID: %d)", techName, newTech.ID)
-			techMap[techName] = newTech
-
-			// Add aliases for new technology
-			addAliases(ctx, log, aliasRepo, newTech.ID, tech.Alias)
+			log.Warnf("Error creating technology %s: %v", techName, err)
+			continue
 		}
+
+		log.Infof("Created technology: %s (ID: %d)", techName, newTech.ID)
+		techMap[techName] = newTech
+
+		// Add aliases for new technology
+		addAliases(ctx, log, aliasRepo, newTech.ID, tech.Alias)
 	}
 }
 
 // updateTechnologyParents handles the second pass of updating parent references
 func updateTechnologyParents(ctx context.Context, log *logrus.Logger, techRepo *technology.Repository,
-	technologies [][]Technology, techMap map[string]*technology.Technology) {
+	technologies []Technology, techMap map[string]*technology.Technology) {
 
-	for _, techGroup := range technologies {
-		for _, tech := range techGroup {
-			if tech.Parent == "" {
-				continue // Skip technologies without parents
-			}
-			techName := strings.ToLower(tech.Name)
-			parentName := strings.ToLower(tech.Parent)
-
-			// Look up the current technology
-			currentTech, exists := techMap[techName]
-			if !exists {
-				log.Warnf("Cannot find technology: %s", techName)
-				continue
-			}
-
-			// Look up the parent technology
-			parentTech, exists := techMap[parentName]
-			if !exists {
-				log.Warnf("Cannot find parent technology: %s for %s", parentName, techName)
-				continue
-			}
-
-			// Update the parent ID
-			currentTech.ParentID = &parentTech.ID
-			err := techRepo.Update(ctx, currentTech)
-			if err != nil {
-				log.Warnf("Error updating parent for %s: %v", currentTech.Name, err)
-				continue
-			}
-
-			log.Infof("Updated technology %s with parent %s (ID: %d)",
-				currentTech.Name, parentTech.Name, parentTech.ID)
+	for _, tech := range technologies {
+		if tech.Parent == "" {
+			continue // Skip technologies without parents
 		}
+		techName := strings.ToLower(tech.Name)
+		parentName := strings.ToLower(tech.Parent)
+
+		// Look up the current technology
+		currentTech, exists := techMap[techName]
+		if !exists {
+			log.Warnf("Cannot find technology: %s", techName)
+			continue
+		}
+
+		// Look up the parent technology
+		parentTech, exists := techMap[parentName]
+		if !exists {
+			log.Warnf("Cannot find parent technology: %s for %s", parentName, techName)
+			continue
+		}
+
+		// Update the parent ID
+		currentTech.ParentID = &parentTech.ID
+		err := techRepo.Update(ctx, currentTech)
+		if err != nil {
+			log.Warnf("Error updating parent for %s: %v", currentTech.Name, err)
+			continue
+		}
+
+		log.Infof("Updated technology %s with parent %s (ID: %d)",
+			currentTech.Name, parentTech.Name, parentTech.ID)
 	}
 }
 
 // addAliases adds aliases for a technology
-func addAliases(ctx context.Context, log *logrus.Logger, aliasRepo *techalias.Repository, techID int, aliases []string) {
+func addAliases(ctx context.Context, log *logrus.Logger, aliasRepo *techalias.Repository,
+	techID int, aliases []string) {
 	for _, aliasName := range aliases {
 		if aliasName == "" {
 			continue
@@ -207,12 +206,12 @@ func addAliases(ctx context.Context, log *logrus.Logger, aliasRepo *techalias.Re
 }
 
 // readTechnologiesFromJSON reads technology data from a JSON file
-func readTechnologiesFromJSON() [][]Technology {
+func readTechnologiesFromJSON() []Technology {
 	// Get the directory of the current executable
 	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		logrus.Errorf("Failed to get executable directory: %v", err)
-		return [][]Technology{}
+		return []Technology{}
 	}
 
 	// Path to the JSON file
@@ -228,14 +227,14 @@ func readTechnologiesFromJSON() [][]Technology {
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		logrus.Errorf("Failed to read technologies file: %v", err)
-		return [][]Technology{}
+		return []Technology{}
 	}
 
 	// Parse the JSON data
-	var technologies [][]Technology
+	var technologies []Technology
 	if err := json.Unmarshal(data, &technologies); err != nil {
 		logrus.Errorf("Failed to parse technologies JSON: %v", err)
-		return [][]Technology{}
+		return []Technology{}
 	}
 
 	return technologies
