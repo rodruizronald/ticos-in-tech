@@ -163,7 +163,7 @@ func (r *Repository) List(ctx context.Context) ([]*Company, error) {
 	var companies []*Company
 	for rows.Next() {
 		company := &Company{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&company.ID,
 			&company.Name,
 			&company.LogoURL,
@@ -177,7 +177,7 @@ func (r *Repository) List(ctx context.Context) ([]*Company, error) {
 		companies = append(companies, company)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating company rows: %w", err)
 	}
 
@@ -200,7 +200,7 @@ func (r *Repository) GetWithJobs(ctx context.Context, name string) (*Company, er
 	var jobs []job.Job
 	for rows.Next() {
 		gotJob := job.Job{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&gotJob.ID,
 			&gotJob.CompanyID,
 			&gotJob.Title,
@@ -221,7 +221,7 @@ func (r *Repository) GetWithJobs(ctx context.Context, name string) (*Company, er
 		jobs = append(jobs, gotJob)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating job rows: %w", err)
 	}
 

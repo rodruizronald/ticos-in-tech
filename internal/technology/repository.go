@@ -193,7 +193,7 @@ func (r *Repository) GetWithAliases(ctx context.Context, id int) (*Technology, e
 	var aliases []techalias.TechnologyAlias
 	for rows.Next() {
 		alias := techalias.TechnologyAlias{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&alias.ID,
 			&alias.TechnologyID,
 			&alias.Alias,
@@ -205,7 +205,7 @@ func (r *Repository) GetWithAliases(ctx context.Context, id int) (*Technology, e
 		aliases = append(aliases, alias)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating alias rows: %w", err)
 	}
 
@@ -229,7 +229,7 @@ func (r *Repository) GetWithJobs(ctx context.Context, id int) (*Technology, erro
 	var jobs []jobtech.JobTechnology
 	for rows.Next() {
 		job := jobtech.JobTechnology{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&job.ID,
 			&job.JobID,
 			&job.TechnologyID,
@@ -243,7 +243,7 @@ func (r *Repository) GetWithJobs(ctx context.Context, id int) (*Technology, erro
 		jobs = append(jobs, job)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating job technology rows: %w", err)
 	}
 

@@ -23,7 +23,8 @@ linters:
     - revive
     - gocritic
     # Fast Linter
-    # - lll
+    - dupl
+    - lll
     - cyclop
     - gocognit
     - goconst
@@ -31,7 +32,8 @@ linters:
     - decorder
   settings:
     govet:
-      shadow: true
+      enable:
+        - shadow
     misspell:
       locale: US
     gocritic:
@@ -39,35 +41,37 @@ linters:
         - diagnostic  
         - style
         - performance
-    errcheck:
-      # Exclude checking of errors assigned to blank identifier (e.g., _ = fmt.Printf(""))
-      exclude-blank: true 
     cyclop:
       max-complexity: 15
+  exclusions:
+    paths:
+      - migrations
+      - scripts
+      - venv
+      - .github
+      - ".*_generated\\.go$"  # Exclude generated files from formatting
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+          - dupl
 
 formatters:
   enable:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/rodruizronald/ticos-in-tech # Helps sort local imports
-
-issues:
-  exclude-dirs:
+      local-prefixes:  # Helps sort local imports
+        - github.com/rodruizronald/ticos-in-tech
+  exclusions:
+    paths:
       - migrations
       - scripts
       - venv
       - .github
-  exclude-files:
-      - ".*_generated\\.go$"
-  exclude-rules:
-    # Exclude specific linters from test files
-    - path: _test\.go
-      linters:
-        - gocyclo # Test functions can sometimes be more complex
+      - ".*_generated\\.go$"  # Exclude generated files from formatting
 
-  exclude-use-default: false
-
+issues:
   # Max issues per linter / same issues (0 for unlimited)
   max-issues-per-linter: 0
   max-same-issues: 0

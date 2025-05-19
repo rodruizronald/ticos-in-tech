@@ -60,7 +60,7 @@ func Connect(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	}
 
 	// Verify the connection
-	if err := pool.Ping(ctx); err != nil {
+	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}

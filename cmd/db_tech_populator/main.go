@@ -103,6 +103,8 @@ func createTechnologies(ctx context.Context, log *logrus.Logger, techRepo *techn
 			// Parent ID will be set in the second pass
 		}
 
+		var existingTech *technology.Technology
+
 		// Insert into database
 		err := techRepo.Create(ctx, newTech)
 		if err != nil {
@@ -111,7 +113,7 @@ func createTechnologies(ctx context.Context, log *logrus.Logger, techRepo *techn
 				log.Infof("Technology already exists: %s", techName)
 
 				// Fetch the existing technology to use for parent mapping
-				existingTech, err := techRepo.GetByName(ctx, techName)
+				existingTech, err = techRepo.GetByName(ctx, techName)
 				if err != nil {
 					log.Warnf("Error fetching existing technology %s: %v", techName, err)
 					continue
@@ -219,7 +221,7 @@ func readTechnologiesFromJSON() []Technology {
 
 	// For development, if the file doesn't exist in the executable directory,
 	// try looking in the current directory
-	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
+	if _, err = os.Stat(jsonPath); os.IsNotExist(err) {
 		jsonPath = "technologies.json"
 	}
 
@@ -232,7 +234,7 @@ func readTechnologiesFromJSON() []Technology {
 
 	// Parse the JSON data
 	var technologies []Technology
-	if err := json.Unmarshal(data, &technologies); err != nil {
+	if err = json.Unmarshal(data, &technologies); err != nil {
 		logrus.Errorf("Failed to parse technologies JSON: %v", err)
 		return []Technology{}
 	}

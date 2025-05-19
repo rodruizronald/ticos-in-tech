@@ -236,7 +236,7 @@ func (r *Repository) List(ctx context.Context, filter Filter) ([]*Job, error) {
 	var jobs []*Job
 	for rows.Next() {
 		job := &Job{}
-		err := rows.Scan(
+		err = rows.Scan(
 			&job.ID,
 			&job.CompanyID,
 			&job.Title,
@@ -257,7 +257,7 @@ func (r *Repository) List(ctx context.Context, filter Filter) ([]*Job, error) {
 		jobs = append(jobs, job)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating job rows: %w", err)
 	}
 
