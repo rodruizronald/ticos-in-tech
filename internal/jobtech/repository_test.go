@@ -30,7 +30,6 @@ func TestRepository_Create(t *testing.T) {
 			jobTech: &JobTechnology{
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
@@ -39,7 +38,6 @@ func TestRepository_Create(t *testing.T) {
 					WithArgs(
 						jobTech.JobID,
 						jobTech.TechnologyID,
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 					).
 					WillReturnRows(pgxmock.NewRows([]string{"id", "created_at"}).AddRow(1, now))
@@ -56,7 +54,6 @@ func TestRepository_Create(t *testing.T) {
 			jobTech: &JobTechnology{
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
@@ -69,7 +66,6 @@ func TestRepository_Create(t *testing.T) {
 					WithArgs(
 						jobTech.JobID,
 						jobTech.TechnologyID,
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 					).
 					WillReturnError(pgErr)
@@ -88,7 +84,6 @@ func TestRepository_Create(t *testing.T) {
 			jobTech: &JobTechnology{
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   true,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
@@ -97,7 +92,6 @@ func TestRepository_Create(t *testing.T) {
 					WithArgs(
 						jobTech.JobID,
 						jobTech.TechnologyID,
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 					).
 					WillReturnError(dbError)
@@ -149,9 +143,9 @@ func TestRepository_GetByJobAndTechnology(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getJobTechnologyByJobAndTechQuery)).
 					WithArgs(jobID, techID).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}).AddRow(
-						1, jobID, techID, true, true, now,
+						1, jobID, techID, true, now,
 					))
 			},
 			checkResults: func(t *testing.T, result *JobTechnology, err error) {
@@ -161,7 +155,6 @@ func TestRepository_GetByJobAndTechnology(t *testing.T) {
 				assert.Equal(t, 1, result.ID)
 				assert.Equal(t, 1, result.JobID)
 				assert.Equal(t, 2, result.TechnologyID)
-				assert.True(t, result.IsPrimary)
 				assert.True(t, result.IsRequired)
 				assert.Equal(t, now, result.CreatedAt)
 			},
@@ -239,14 +232,12 @@ func TestRepository_Update(t *testing.T) {
 				ID:           1,
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   false,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
 				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(updateJobTechnologyQuery)).
 					WithArgs(
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 						jobTech.ID,
 					).
@@ -263,14 +254,12 @@ func TestRepository_Update(t *testing.T) {
 				ID:           999,
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   false,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
 				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(updateJobTechnologyQuery)).
 					WithArgs(
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 						jobTech.ID,
 					).
@@ -290,7 +279,6 @@ func TestRepository_Update(t *testing.T) {
 				ID:           1,
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   false,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
@@ -301,7 +289,6 @@ func TestRepository_Update(t *testing.T) {
 				}
 				mock.ExpectExec(regexp.QuoteMeta(updateJobTechnologyQuery)).
 					WithArgs(
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 						jobTech.ID,
 					).
@@ -322,14 +309,12 @@ func TestRepository_Update(t *testing.T) {
 				ID:           1,
 				JobID:        1,
 				TechnologyID: 2,
-				IsPrimary:    true,
 				IsRequired:   false,
 			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, jobTech *JobTechnology) {
 				t.Helper()
 				mock.ExpectExec(regexp.QuoteMeta(updateJobTechnologyQuery)).
 					WithArgs(
-						jobTech.IsPrimary,
 						jobTech.IsRequired,
 						jobTech.ID,
 					).
@@ -456,11 +441,11 @@ func TestRepository_ListByJob(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(listJobTechnologiesByJobQuery)).
 					WithArgs(jobID).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}).AddRow(
-						1, jobID, 2, true, true, now,
+						1, jobID, 2, true, now,
 					).AddRow(
-						2, jobID, 3, false, true, now,
+						2, jobID, 3, true, now,
 					))
 			},
 			checkResults: func(t *testing.T, results []*JobTechnology, err error) {
@@ -470,12 +455,10 @@ func TestRepository_ListByJob(t *testing.T) {
 				assert.Equal(t, 1, results[0].ID)
 				assert.Equal(t, 1, results[0].JobID)
 				assert.Equal(t, 2, results[0].TechnologyID)
-				assert.True(t, results[0].IsPrimary)
 				assert.True(t, results[0].IsRequired)
 				assert.Equal(t, 2, results[1].ID)
 				assert.Equal(t, 1, results[1].JobID)
 				assert.Equal(t, 3, results[1].TechnologyID)
-				assert.False(t, results[1].IsPrimary)
 				assert.True(t, results[1].IsRequired)
 			},
 		},
@@ -487,7 +470,7 @@ func TestRepository_ListByJob(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(listJobTechnologiesByJobQuery)).
 					WithArgs(jobID).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}))
 			},
 			checkResults: func(t *testing.T, results []*JobTechnology, err error) {
@@ -572,11 +555,11 @@ func TestRepository_ListByTechnology(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(listJobTechnologiesByTechnologyQuery)).
 					WithArgs(techID).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}).AddRow(
-						1, 1, techID, true, true, now,
+						1, 1, techID, true, now,
 					).AddRow(
-						3, 2, techID, false, true, now,
+						3, 2, techID, true, now,
 					))
 			},
 			checkResults: func(t *testing.T, results []*JobTechnology, err error) {
@@ -586,12 +569,10 @@ func TestRepository_ListByTechnology(t *testing.T) {
 				assert.Equal(t, 1, results[0].ID)
 				assert.Equal(t, 1, results[0].JobID)
 				assert.Equal(t, 2, results[0].TechnologyID)
-				assert.True(t, results[0].IsPrimary)
 				assert.True(t, results[0].IsRequired)
 				assert.Equal(t, 3, results[1].ID)
 				assert.Equal(t, 2, results[1].JobID)
 				assert.Equal(t, 2, results[1].TechnologyID)
-				assert.False(t, results[1].IsPrimary)
 				assert.True(t, results[1].IsRequired)
 			},
 		},
@@ -603,7 +584,7 @@ func TestRepository_ListByTechnology(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(listJobTechnologiesByTechnologyQuery)).
 					WithArgs(techID).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}))
 			},
 			checkResults: func(t *testing.T, results []*JobTechnology, err error) {
