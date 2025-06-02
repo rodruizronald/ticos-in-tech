@@ -233,7 +233,6 @@ func (r *Repository) GetWithJobs(ctx context.Context, id int) (*Technology, erro
 			&job.ID,
 			&job.JobID,
 			&job.TechnologyID,
-			&job.IsPrimary,
 			&job.IsRequired,
 			&job.CreatedAt,
 		)

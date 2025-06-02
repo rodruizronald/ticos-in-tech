@@ -822,11 +822,11 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}).AddRow(
-						1, 101, id, true, true, now,
+						1, 101, id, true, now,
 					).AddRow(
-						2, 102, id, false, true, now,
+						2, 102, id, true, now,
 					))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -841,9 +841,7 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				// Check job associations
 				assert.Len(t, result.Jobs, 2)
 				assert.Equal(t, 101, result.Jobs[0].JobID)
-				assert.True(t, result.Jobs[0].IsPrimary)
 				assert.Equal(t, 102, result.Jobs[1].JobID)
-				assert.False(t, result.Jobs[1].IsPrimary)
 			},
 		},
 		{
@@ -864,9 +862,9 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				mock.ExpectQuery(regexp.QuoteMeta(getTechnologyJobsQuery)).
 					WithArgs(id).
 					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "job_id", "technology_id", "is_primary", "is_required", "created_at",
+						"id", "job_id", "technology_id", "is_required", "created_at",
 					}).AddRow(
-						3, 201, id, true, false, now,
+						3, 201, id, false, now,
 					))
 			},
 			checkResults: func(t *testing.T, result *Technology, err error) {
@@ -882,7 +880,6 @@ func TestRepository_GetWithJobs(t *testing.T) {
 				// Check job associations
 				assert.Len(t, result.Jobs, 1)
 				assert.Equal(t, 201, result.Jobs[0].JobID)
-				assert.True(t, result.Jobs[0].IsPrimary)
 				assert.False(t, result.Jobs[0].IsRequired)
 			},
 		},
