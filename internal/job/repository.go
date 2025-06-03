@@ -11,6 +11,13 @@ import (
 
 // SQL query constants
 const (
+	// Base query for selecting job fields
+	selectJobBaseQuery = `
+        SELECT id, company_id, title, description, experience_level, employment_type,
+               location, work_mode, application_url, is_active, signature, created_at, updated_at
+        FROM jobs
+    `
+
 	createJobQuery = `
         INSERT INTO jobs (
             company_id, title, description, experience_level, employment_type,
@@ -19,11 +26,12 @@ const (
         RETURNING id, created_at, updated_at
     `
 
-	getJobByIDQuery = `
-        SELECT id, company_id, title, description, experience_level, employment_type,
-               location, work_mode, application_url, is_active, signature, created_at, updated_at
-        FROM jobs
+	getJobByIDQuery = selectJobBaseQuery + `
         WHERE id = $1
+    `
+
+	getJobBySignatureQuery = selectJobBaseQuery + `
+        WHERE signature = $1
     `
 
 	updateJobQuery = `
@@ -37,10 +45,7 @@ const (
 
 	deleteJobQuery = `DELETE FROM jobs WHERE id = $1`
 
-	listJobsBaseQuery = `
-        SELECT id, company_id, title, description, experience_level, employment_type,
-               location, work_mode, application_url, is_active, signature, created_at, updated_at
-        FROM jobs
+	listJobsBaseQuery = selectJobBaseQuery + `
         WHERE 1=1
     `
 )
@@ -262,4 +267,33 @@ func (r *Repository) List(ctx context.Context, filter Filter) ([]*Job, error) {
 	}
 
 	return jobs, nil
+}
+
+// GetBySignature retrieves a job by its signature.
+func (r *Repository) GetBySignature(ctx context.Context, signature string) (*Job, error) {
+	job := &Job{}
+	err := r.db.QueryRow(ctx, getJobBySignatureQuery, signature).Scan(
+		&job.ID,
+		&job.CompanyID,
+		&job.Title,
+		&job.Description,
+		&job.ExperienceLevel,
+		&job.EmploymentType,
+		&job.Location,
+		&job.WorkMode,
+		&job.ApplicationURL,
+		&job.IsActive,
+		&job.Signature,
+		&job.CreatedAt,
+		&job.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &NotFoundError{Signature: signature}
+		}
+		return nil, fmt.Errorf("failed to get job by signature: %w", err)
+	}
+
+	return job, nil
 }

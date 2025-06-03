@@ -700,3 +700,103 @@ func TestRepository_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestRepository_GetBySignature(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	dbError := errors.New("database error")
+
+	tests := []struct {
+		name         string
+		signature    string
+		mockSetup    func(mock pgxmock.PgxPoolIface, signature string)
+		checkResults func(t *testing.T, result *Job, err error)
+	}{
+		{
+			name:      "job found",
+			signature: "job-signature-1",
+			mockSetup: func(mock pgxmock.PgxPoolIface, signature string) {
+				t.Helper()
+				mock.ExpectQuery(regexp.QuoteMeta(getJobBySignatureQuery)).
+					WithArgs(signature).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}).AddRow(
+						1, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
+						"San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
+					))
+			},
+			checkResults: func(t *testing.T, result *Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, 1, result.ID)
+				assert.Equal(t, 1, result.CompanyID)
+				assert.Equal(t, "Software Engineer", result.Title)
+				assert.Equal(t, "Job description", result.Description)
+				assert.Equal(t, "Mid-Level", result.ExperienceLevel)
+				assert.Equal(t, "Full-Time", result.EmploymentType)
+				assert.Equal(t, "San Francisco", result.Location)
+				assert.Equal(t, "Remote", result.WorkMode)
+				assert.Equal(t, "https://example.com/apply", result.ApplicationURL)
+				assert.True(t, result.IsActive)
+				assert.Equal(t, "job-signature-1", result.Signature)
+				assert.Equal(t, now, result.CreatedAt)
+				assert.Equal(t, now, result.UpdatedAt)
+			},
+		},
+		{
+			name:      "job not found",
+			signature: "nonexistent-signature",
+			mockSetup: func(mock pgxmock.PgxPoolIface, signature string) {
+				t.Helper()
+				mock.ExpectQuery(regexp.QuoteMeta(getJobBySignatureQuery)).
+					WithArgs(signature).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			checkResults: func(t *testing.T, result *Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+
+				var notFoundErr *NotFoundError
+				require.ErrorAs(t, err, &notFoundErr)
+				assert.Equal(t, "nonexistent-signature", notFoundErr.Signature)
+			},
+		},
+		{
+			name:      "database error",
+			signature: "error-signature",
+			mockSetup: func(mock pgxmock.PgxPoolIface, signature string) {
+				t.Helper()
+				mock.ExpectQuery(regexp.QuoteMeta(getJobBySignatureQuery)).
+					WithArgs(signature).
+					WillReturnError(dbError)
+			},
+			checkResults: func(t *testing.T, result *Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+				require.ErrorIs(t, err, dbError)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			mockDB, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			defer mockDB.Close()
+
+			repo := NewRepository(mockDB)
+			tt.mockSetup(mockDB, tt.signature)
+
+			result, err := repo.GetBySignature(context.Background(), tt.signature)
+			tt.checkResults(t, result, err)
+
+			require.NoError(t, mockDB.ExpectationsWereMet())
+		})
+	}
+}

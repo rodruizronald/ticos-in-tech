@@ -9,11 +9,15 @@ import (
 
 // NotFoundError represents a job not found error
 type NotFoundError struct {
-	ID int
+	ID        int
+	Signature string
 }
 
 func (e NotFoundError) Error() string {
-	return fmt.Sprintf("job with ID %d not found", e.ID)
+	if e.ID != 0 {
+		return fmt.Sprintf("job with ID %d not found", e.ID)
+	}
+	return fmt.Sprintf("job with signature %s not found", e.Signature)
 }
 
 // IsNotFound checks if an error is a job not found error

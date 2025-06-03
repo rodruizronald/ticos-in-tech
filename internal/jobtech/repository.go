@@ -12,34 +12,34 @@ import (
 // SQL query constants
 const (
 	createJobTechnologyQuery = `
-        INSERT INTO job_technologies (job_id, technology_id, is_primary, is_required)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO job_technologies (job_id, technology_id, is_required)
+        VALUES ($1, $2, $3)
         RETURNING id, created_at
     `
 
 	getJobTechnologyByJobAndTechQuery = `
-        SELECT id, job_id, technology_id, is_primary, is_required, created_at
+        SELECT id, job_id, technology_id, is_required, created_at
         FROM job_technologies
         WHERE job_id = $1 AND technology_id = $2
     `
 
 	updateJobTechnologyQuery = `
         UPDATE job_technologies
-        SET is_primary = $1, is_required = $2
-        WHERE id = $3
+        SET is_required = $1
+        WHERE id = $2
     `
 
 	deleteJobTechnologyQuery = `DELETE FROM job_technologies WHERE id = $1`
 
 	listJobTechnologiesByJobQuery = `
-        SELECT id, job_id, technology_id, is_primary, is_required, created_at
+        SELECT id, job_id, technology_id, is_required, created_at
         FROM job_technologies
         WHERE job_id = $1
-        ORDER BY is_primary DESC, id
+        ORDER BY id
     `
 
 	listJobTechnologiesByTechnologyQuery = `
-        SELECT id, job_id, technology_id, is_primary, is_required, created_at
+        SELECT id, job_id, technology_id, is_required, created_at
         FROM job_technologies
         WHERE technology_id = $1
         ORDER BY created_at DESC
@@ -70,7 +70,6 @@ func (r *Repository) Create(ctx context.Context, jobTech *JobTechnology) error {
 		createJobTechnologyQuery,
 		jobTech.JobID,
 		jobTech.TechnologyID,
-		jobTech.IsPrimary,
 		jobTech.IsRequired,
 	).Scan(&jobTech.ID, &jobTech.CreatedAt)
 
@@ -96,7 +95,6 @@ func (r *Repository) GetByJobAndTechnology(ctx context.Context, jobID, technolog
 		&jobTech.ID,
 		&jobTech.JobID,
 		&jobTech.TechnologyID,
-		&jobTech.IsPrimary,
 		&jobTech.IsRequired,
 		&jobTech.CreatedAt,
 	)
@@ -119,7 +117,6 @@ func (r *Repository) Update(ctx context.Context, jobTech *JobTechnology) error {
 	commandTag, err := r.db.Exec(
 		ctx,
 		updateJobTechnologyQuery,
-		jobTech.IsPrimary,
 		jobTech.IsRequired,
 		jobTech.ID,
 	)
@@ -172,7 +169,6 @@ func (r *Repository) ListByJob(ctx context.Context, jobID int) ([]*JobTechnology
 			&jobTech.ID,
 			&jobTech.JobID,
 			&jobTech.TechnologyID,
-			&jobTech.IsPrimary,
 			&jobTech.IsRequired,
 			&jobTech.CreatedAt,
 		)
@@ -204,7 +200,6 @@ func (r *Repository) ListByTechnology(ctx context.Context, technologyID int) ([]
 			&jobTech.ID,
 			&jobTech.JobID,
 			&jobTech.TechnologyID,
-			&jobTech.IsPrimary,
 			&jobTech.IsRequired,
 			&jobTech.CreatedAt,
 		)
