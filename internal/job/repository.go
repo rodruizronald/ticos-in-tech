@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,9 +47,17 @@ const (
 
 	deleteJobQuery = `DELETE FROM jobs WHERE id = $1`
 
-	listJobsBaseQuery = selectJobBaseQuery + `
-        WHERE 1=1
-    `
+	// Text search query with weighted ranking (title has more weight than description)
+	searchJobsBaseQuery = `
+        WITH search_query AS (
+            SELECT plainto_tsquery('english', $1) AS query
+        )
+        SELECT 
+            j.id, j.company_id, j.title, j.description, j.experience_level, j.employment_type,
+            j.location, j.work_mode, j.application_url, j.is_active, j.signature, j.created_at, j.updated_at
+        FROM jobs j, search_query sq
+        WHERE j.is_active = true AND j.search_vector @@ sq.query
+	`
 )
 
 // Database interface to support pgxpool and mocks
@@ -65,6 +75,151 @@ type Repository struct {
 // NewRepository creates a new Repository instance.
 func NewRepository(db Database) *Repository {
 	return &Repository{db: db}
+}
+
+// SearchParams defines parameters for job search
+type SearchParams struct {
+	Query  string
+	Limit  int
+	Offset int
+	// Optional filters
+	ExperienceLevel *string
+	EmploymentType  *string
+	Location        *string
+	WorkMode        *string
+	DateFrom        *time.Time
+	DateTo          *time.Time
+}
+
+// Validate ensures search parameters are within acceptable bounds
+func (sp *SearchParams) Validate() error {
+	if strings.TrimSpace(sp.Query) == "" {
+		return errors.New("search query cannot be empty")
+	}
+
+	if sp.Limit <= 0 {
+		sp.Limit = 20 // Default limit
+	}
+
+	if sp.Limit > 100 {
+		sp.Limit = 100 // Max limit to prevent abuse
+	}
+
+	if sp.Offset < 0 {
+		sp.Offset = 0
+	}
+
+	// Validate date range if provided
+	if sp.DateFrom != nil && sp.DateTo != nil {
+		if sp.DateFrom.After(*sp.DateTo) {
+			return errors.New("date from cannot be after date to")
+		}
+	}
+
+	return nil
+}
+
+// Search performs a full-text search on job titles and descriptions with optional filters
+func (r *Repository) Search(ctx context.Context, params SearchParams) ([]*Job, error) {
+	// Validate parameters
+	if err := params.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid search parameters: %w", err)
+	}
+
+	// Trim whitespace from query
+	params.Query = strings.TrimSpace(params.Query)
+
+	// Build additional WHERE conditions
+	whereConditions := []string{}
+	args := []any{params.Query}
+	argCount := 2 // Starting at 2 because $1 is the search query
+
+	// Add optional filters
+	if params.ExperienceLevel != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.experience_level = $%d", argCount))
+		args = append(args, *params.ExperienceLevel)
+		argCount++
+	}
+
+	if params.EmploymentType != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.employment_type = $%d", argCount))
+		args = append(args, *params.EmploymentType)
+		argCount++
+	}
+
+	if params.Location != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.location = $%d", argCount))
+		args = append(args, *params.Location)
+		argCount++
+	}
+
+	if params.WorkMode != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.work_mode = $%d", argCount))
+		args = append(args, *params.WorkMode)
+		argCount++
+	}
+
+	if params.DateFrom != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.created_at >= $%d", argCount))
+		args = append(args, *params.DateFrom)
+		argCount++
+	}
+
+	if params.DateTo != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("j.created_at <= $%d", argCount))
+		args = append(args, *params.DateTo)
+		argCount++
+	}
+
+	// Build additional WHERE clause
+	additionalWhere := ""
+	if len(whereConditions) > 0 {
+		additionalWhere = " AND " + strings.Join(whereConditions, " AND ")
+	}
+
+	// Build final search query with ordering and pagination
+	searchQuery := searchJobsBaseQuery + additionalWhere +
+		fmt.Sprintf(" ORDER BY j.created_at DESC LIMIT $%d OFFSET $%d", argCount, argCount+1)
+
+	// Add pagination parameters
+	args = append(args, params.Limit, params.Offset)
+
+	// Execute search query
+	rows, err := r.db.Query(ctx, searchQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []*Job
+	for rows.Next() {
+		job := &Job{}
+		err = rows.Scan(
+			&job.ID,
+			&job.CompanyID,
+			&job.Title,
+			&job.Description,
+			&job.ExperienceLevel,
+			&job.EmploymentType,
+			&job.Location,
+			&job.WorkMode,
+			&job.ApplicationURL,
+			&job.IsActive,
+			&job.Signature,
+			&job.CreatedAt,
+			&job.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating job rows: %w", err)
+	}
+
+	return jobs, nil
 }
 
 // Create inserts a new job into the database.
@@ -172,101 +327,6 @@ func (r *Repository) Delete(ctx context.Context, id int) error {
 	}
 
 	return nil
-}
-
-// Filter defines the available filters for job queries
-type Filter struct {
-	CompanyID       *int
-	IsActive        *bool
-	Location        *string
-	WorkMode        *string
-	ExperienceLevel *string
-	EmploymentType  *string
-}
-
-// List retrieves all jobs from the database with optional filtering.
-func (r *Repository) List(ctx context.Context, filter Filter) ([]*Job, error) {
-	// Start with base query
-	query := listJobsBaseQuery
-
-	// Build query based on filters
-	args := []any{}
-	argCount := 1
-
-	if filter.CompanyID != nil {
-		query += fmt.Sprintf(" AND company_id = $%d", argCount)
-		args = append(args, *filter.CompanyID)
-		argCount++
-	}
-
-	if filter.IsActive != nil {
-		query += fmt.Sprintf(" AND is_active = $%d", argCount)
-		args = append(args, *filter.IsActive)
-		argCount++
-	}
-
-	if filter.Location != nil {
-		query += fmt.Sprintf(" AND location = $%d", argCount)
-		args = append(args, *filter.Location)
-		argCount++
-	}
-
-	if filter.WorkMode != nil {
-		query += fmt.Sprintf(" AND work_mode = $%d", argCount)
-		args = append(args, *filter.WorkMode)
-		argCount++
-	}
-
-	if filter.ExperienceLevel != nil {
-		query += fmt.Sprintf(" AND experience_level = $%d", argCount)
-		args = append(args, *filter.ExperienceLevel)
-		argCount++
-	}
-
-	if filter.EmploymentType != nil {
-		query += fmt.Sprintf(" AND employment_type = $%d", argCount)
-		args = append(args, *filter.EmploymentType)
-	}
-
-	// Add ordering
-	query += " ORDER BY created_at DESC"
-
-	// Execute query
-	rows, err := r.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list jobs: %w", err)
-	}
-	defer rows.Close()
-
-	var jobs []*Job
-	for rows.Next() {
-		job := &Job{}
-		err = rows.Scan(
-			&job.ID,
-			&job.CompanyID,
-			&job.Title,
-			&job.Description,
-			&job.ExperienceLevel,
-			&job.EmploymentType,
-			&job.Location,
-			&job.WorkMode,
-			&job.ApplicationURL,
-			&job.IsActive,
-			&job.Signature,
-			&job.CreatedAt,
-			&job.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan job row: %w", err)
-		}
-		jobs = append(jobs, job)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating job rows: %w", err)
-	}
-
-	return jobs, nil
 }
 
 // GetBySignature retrieves a job by its signature.

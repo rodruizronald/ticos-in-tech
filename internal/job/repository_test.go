@@ -14,166 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepository_List(t *testing.T) {
-	t.Parallel()
-	now := time.Now()
-	dbError := errors.New("database error")
-
-	// Helper function to create a pointer to a value
-	intPtr := func(i int) *int { return &i }
-	boolPtr := func(b bool) *bool { return &b }
-	strPtr := func(s string) *string { return &s }
-
-	tests := []struct {
-		name         string
-		filter       Filter
-		mockSetup    func(mock pgxmock.PgxPoolIface, filter Filter)
-		checkResults func(t *testing.T, jobs []*Job, err error)
-	}{
-		{
-			name:   "no filters",
-			filter: Filter{},
-			mockSetup: func(mock pgxmock.PgxPoolIface, _ Filter) {
-				t.Helper()
-				mock.ExpectQuery(regexp.QuoteMeta(listJobsBaseQuery + " ORDER BY created_at DESC")).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-					}).AddRow(
-						1, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
-						"San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
-					).AddRow(
-						2, 2, "Product Manager", "Another description", "Senior", "Full-Time",
-						"New York", "Hybrid", "https://example.com/apply2", true, "job-signature-2", now, now,
-					))
-			},
-			checkResults: func(t *testing.T, jobs []*Job, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Len(t, jobs, 2)
-				assert.Equal(t, 1, jobs[0].ID)
-				assert.Equal(t, "Software Engineer", jobs[0].Title)
-				assert.Equal(t, 2, jobs[1].ID)
-				assert.Equal(t, "Product Manager", jobs[1].Title)
-			},
-		},
-		{
-			name: "filter by company ID",
-			filter: Filter{
-				CompanyID: intPtr(1),
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, filter Filter) {
-				t.Helper()
-				mock.ExpectQuery(regexp.QuoteMeta(listJobsBaseQuery + " AND company_id = $1 ORDER BY created_at DESC")).
-					WithArgs(*filter.CompanyID).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-					}).AddRow(
-						1, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
-						"San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
-					))
-			},
-			checkResults: func(t *testing.T, jobs []*Job, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Len(t, jobs, 1)
-				assert.Equal(t, 1, jobs[0].ID)
-				assert.Equal(t, 1, jobs[0].CompanyID)
-				assert.Equal(t, "Software Engineer", jobs[0].Title)
-			},
-		},
-		{
-			name: "filter by multiple criteria",
-			filter: Filter{
-				IsActive:        boolPtr(true),
-				WorkMode:        strPtr("Remote"),
-				ExperienceLevel: strPtr("Mid-Level"),
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, filter Filter) {
-				t.Helper()
-				mock.ExpectQuery(regexp.QuoteMeta(
-					listJobsBaseQuery+
-						" AND is_active = $1"+
-						" AND work_mode = $2"+
-						" AND experience_level = $3"+
-						" ORDER BY created_at DESC")).
-					WithArgs(*filter.IsActive, *filter.WorkMode, *filter.ExperienceLevel).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-					}).AddRow(
-						1, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
-						"San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
-					))
-			},
-			checkResults: func(t *testing.T, jobs []*Job, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Len(t, jobs, 1)
-				assert.Equal(t, "Mid-Level", jobs[0].ExperienceLevel)
-				assert.Equal(t, "Remote", jobs[0].WorkMode)
-				assert.True(t, jobs[0].IsActive)
-			},
-		},
-		{
-			name: "no results",
-			filter: Filter{
-				Location: strPtr("Antarctica"),
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, filter Filter) {
-				t.Helper()
-				mock.ExpectQuery(regexp.QuoteMeta(listJobsBaseQuery + " AND location = $1 ORDER BY created_at DESC")).
-					WithArgs(*filter.Location).
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-					}))
-			},
-			checkResults: func(t *testing.T, jobs []*Job, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Empty(t, jobs)
-			},
-		},
-		{
-			name: "database error",
-			filter: Filter{
-				EmploymentType: strPtr("Full-Time"),
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, filter Filter) {
-				t.Helper()
-				mock.ExpectQuery(regexp.QuoteMeta(listJobsBaseQuery + " AND employment_type = $1 ORDER BY created_at DESC")).
-					WithArgs(*filter.EmploymentType).
-					WillReturnError(dbError)
-			},
-			checkResults: func(t *testing.T, jobs []*Job, err error) {
-				t.Helper()
-				require.Error(t, err)
-				assert.Nil(t, jobs)
-				require.ErrorIs(t, err, dbError)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			mockDB, err := pgxmock.NewPool()
-			require.NoError(t, err)
-			defer mockDB.Close()
-
-			repo := NewRepository(mockDB)
-			tt.mockSetup(mockDB, tt.filter)
-
-			jobs, err := repo.List(context.Background(), tt.filter)
-			tt.checkResults(t, jobs, err)
-
-			require.NoError(t, mockDB.ExpectationsWereMet())
-		})
-	}
-}
-
 func TestRepository_Create(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -799,4 +639,281 @@ func TestRepository_GetBySignature(t *testing.T) {
 			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestRepository_Search(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	dbError := errors.New("database error")
+	dateFrom := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
+
+	tests := []struct {
+		name         string
+		params       SearchParams
+		mockSetup    func(mock pgxmock.PgxPoolIface, params SearchParams)
+		checkResults func(t *testing.T, result []*Job, err error)
+	}{
+		{
+			name: "successful search with basic query",
+			params: SearchParams{
+				Query:  "software engineer",
+				Limit:  10,
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("software engineer", 10, 0).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}).AddRow(
+						1, 1, "Software Engineer", "Job description", "Mid-Level", "Full-Time",
+						"San Francisco", "Remote", "https://example.com/apply", true, "job-signature-1", now, now,
+					).AddRow(
+						2, 2, "Senior Software Engineer", "Senior position", "Senior", "Full-Time",
+						"New York", "Hybrid", "https://example.com/apply2", true, "job-signature-2", now, now,
+					))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 2)
+				assert.Equal(t, "Software Engineer", result[0].Title)
+				assert.Equal(t, "Senior Software Engineer", result[1].Title)
+			},
+		},
+		{
+			name: "search with all filters applied",
+			params: SearchParams{
+				Query:           "developer",
+				Limit:           5,
+				Offset:          10,
+				ExperienceLevel: stringPtr("Senior"),
+				EmploymentType:  stringPtr("Full-Time"),
+				Location:        stringPtr("San Francisco"),
+				WorkMode:        stringPtr("Remote"),
+				DateFrom:        &dateFrom,
+				DateTo:          &dateTo,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery +
+					" AND j.experience_level = $2 AND j.employment_type = $3 AND j.location = $4 AND j.work_mode = $5 AND j.created_at >= $6 AND j.created_at <= $7" +
+					" ORDER BY j.created_at DESC LIMIT $8 OFFSET $9"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("developer", "Senior", "Full-Time", "San Francisco", "Remote", dateFrom, dateTo, 5, 10).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}).AddRow(
+						3, 3, "Senior Developer", "Senior developer position", "Senior", "Full-Time",
+						"San Francisco", "Remote", "https://example.com/apply3", true, "job-signature-3", now, now,
+					))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 1)
+				assert.Equal(t, "Senior Developer", result[0].Title)
+				assert.Equal(t, "Senior", result[0].ExperienceLevel)
+				assert.Equal(t, "Full-Time", result[0].EmploymentType)
+				assert.Equal(t, "San Francisco", result[0].Location)
+				assert.Equal(t, "Remote", result[0].WorkMode)
+			},
+		},
+		{
+			name: "search with no results",
+			params: SearchParams{
+				Query:  "nonexistent job title",
+				Limit:  20,
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("nonexistent job title", 20, 0).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 0)
+			},
+		},
+		{
+			name: "database error during search",
+			params: SearchParams{
+				Query:  "test query",
+				Limit:  10,
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("test query", 10, 0).
+					WillReturnError(dbError)
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+				require.ErrorIs(t, err, dbError)
+			},
+		},
+		{
+			name: "validation error - empty query",
+			params: SearchParams{
+				Query:  "",
+				Limit:  10,
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				// No mock setup needed as validation should fail before database call
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+				assert.Contains(t, err.Error(), "search query cannot be empty")
+			},
+		},
+		{
+			name: "validation error - whitespace only query",
+			params: SearchParams{
+				Query:  "   ",
+				Limit:  10,
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				// No mock setup needed as validation should fail before database call
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+				assert.Contains(t, err.Error(), "search query cannot be empty")
+			},
+		},
+		{
+			name: "validation error - invalid date range",
+			params: SearchParams{
+				Query:    "test",
+				Limit:    10,
+				Offset:   0,
+				DateFrom: &dateTo,   // Later date
+				DateTo:   &dateFrom, // Earlier date
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				// No mock setup needed as validation should fail before database call
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.Error(t, err)
+				assert.Nil(t, result)
+				assert.Contains(t, err.Error(), "date from cannot be after date to")
+			},
+		},
+		{
+			name: "default limit applied when zero",
+			params: SearchParams{
+				Query:  "test query",
+				Limit:  0, // Should default to 20
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("test query", 20, 0). // Should use default limit of 20
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 0)
+			},
+		},
+		{
+			name: "max limit enforced when exceeded",
+			params: SearchParams{
+				Query:  "test query",
+				Limit:  150, // Should be capped to 100
+				Offset: 0,
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("test query", 100, 0). // Should use max limit of 100
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 0)
+			},
+		},
+		{
+			name: "negative offset corrected to zero",
+			params: SearchParams{
+				Query:  "test query",
+				Limit:  10,
+				Offset: -5, // Should be corrected to 0
+			},
+			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+				t.Helper()
+				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("test query", 10, 0). // Should use offset of 0
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+					}))
+			},
+			checkResults: func(t *testing.T, result []*Job, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Len(t, result, 0)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			mockDB, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			defer mockDB.Close()
+
+			repo := NewRepository(mockDB)
+			tt.mockSetup(mockDB, tt.params)
+
+			result, err := repo.Search(context.Background(), tt.params)
+			tt.checkResults(t, result, err)
+
+			require.NoError(t, mockDB.ExpectationsWereMet())
+		})
+	}
+}
+
+// Helper function to create string pointers
+func stringPtr(s string) *string {
+	return &s
 }
