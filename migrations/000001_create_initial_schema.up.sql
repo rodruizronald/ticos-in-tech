@@ -21,6 +21,11 @@ CREATE TABLE jobs (
     application_url VARCHAR(255) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     signature VARCHAR(64) UNIQUE,
+    search_vector tsvector 
+    GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(title, '')), 'A') || 
+        setweight(to_tsvector('english', coalesce(description, '')), 'B')
+    ) STORED,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -59,8 +64,9 @@ CREATE UNIQUE INDEX idx_companies_name ON companies(name);
 CREATE INDEX idx_companies_active ON companies(id) WHERE is_active = TRUE;
 
 -- Jobs Indexes
-CREATE INDEX idx_jobs_title_tsvector ON jobs USING GIN (to_tsvector('english', title));
-CREATE INDEX idx_jobs_description_tsvector ON jobs USING GIN (to_tsvector('english', description));
+-- Create a GIN index on the search_vector column to speed up full-text search queries
+-- GIN (Generalized Inverted Index) is optimized for full-text search
+CREATE INDEX idx_jobs_search_vector ON jobs USING GIN (search_vector);
 CREATE INDEX idx_jobs_location ON jobs(location);
 CREATE INDEX idx_jobs_active ON jobs(id) WHERE is_active = TRUE;
 CREATE INDEX idx_jobs_work_mode ON jobs(work_mode);
