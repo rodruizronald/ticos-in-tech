@@ -661,7 +661,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -698,10 +698,11 @@ func TestRepository_Search(t *testing.T) {
 				DateFrom:        &dateFrom,
 				DateTo:          &dateTo,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery +
-					" AND j.experience_level = $2 AND j.employment_type = $3 AND j.location = $4 AND j.work_mode = $5 AND j.created_at >= $6 AND j.created_at <= $7" +
+					" AND j.experience_level = $2 AND j.employment_type = $3 AND j.location = $4 AND j.work_mode = $5" +
+					" AND j.created_at >= $6 AND j.created_at <= $7" +
 					" ORDER BY j.created_at DESC LIMIT $8 OFFSET $9"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
 					WithArgs("developer", "Senior", "Full-Time", "San Francisco", "Remote", dateFrom, dateTo, 5, 10).
@@ -731,7 +732,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  20,
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -744,7 +745,7 @@ func TestRepository_Search(t *testing.T) {
 			checkResults: func(t *testing.T, result []*Job, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				assert.Len(t, result, 0)
+				assert.Empty(t, result, 0)
 			},
 		},
 		{
@@ -754,7 +755,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -775,7 +776,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				// No mock setup needed as validation should fail before database call
 			},
@@ -793,7 +794,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				// No mock setup needed as validation should fail before database call
 			},
@@ -813,7 +814,7 @@ func TestRepository_Search(t *testing.T) {
 				DateFrom: &dateTo,   // Later date
 				DateTo:   &dateFrom, // Earlier date
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				// No mock setup needed as validation should fail before database call
 			},
@@ -831,7 +832,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  0, // Should default to 20
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -844,7 +845,7 @@ func TestRepository_Search(t *testing.T) {
 			checkResults: func(t *testing.T, result []*Job, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				assert.Len(t, result, 0)
+				assert.Empty(t, result, 0)
 			},
 		},
 		{
@@ -854,7 +855,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  150, // Should be capped to 100
 				Offset: 0,
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -867,7 +868,7 @@ func TestRepository_Search(t *testing.T) {
 			checkResults: func(t *testing.T, result []*Job, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				assert.Len(t, result, 0)
+				assert.Empty(t, result, 0)
 			},
 		},
 		{
@@ -877,7 +878,7 @@ func TestRepository_Search(t *testing.T) {
 				Limit:  10,
 				Offset: -5, // Should be corrected to 0
 			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, params SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -890,7 +891,7 @@ func TestRepository_Search(t *testing.T) {
 			checkResults: func(t *testing.T, result []*Job, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				assert.Len(t, result, 0)
+				assert.Empty(t, result, 0)
 			},
 		},
 	}
@@ -905,7 +906,7 @@ func TestRepository_Search(t *testing.T) {
 			repo := NewRepository(mockDB)
 			tt.mockSetup(mockDB, tt.params)
 
-			result, err := repo.Search(context.Background(), tt.params)
+			result, err := repo.Search(context.Background(), &tt.params)
 			tt.checkResults(t, result, err)
 
 			require.NoError(t, mockDB.ExpectationsWereMet())

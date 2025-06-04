@@ -120,7 +120,7 @@ func (sp *SearchParams) Validate() error {
 }
 
 // Search performs a full-text search on job titles and descriptions with optional filters
-func (r *Repository) Search(ctx context.Context, params SearchParams) ([]*Job, error) {
+func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, error) {
 	// Validate parameters
 	if err := params.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid search parameters: %w", err)
