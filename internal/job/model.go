@@ -25,3 +25,42 @@ type Job struct {
 	// Relationships (not stored in database)
 	Technologies []jobtech.JobTechnology `json:"technologies,omitempty" db:"-"`
 }
+
+// SearchRequest represents the search request parameters
+type SearchRequest struct {
+	Query           string `form:"q" binding:"required" example:"golang developer"`
+	Limit           int    `form:"limit" example:"20"`
+	Offset          int    `form:"offset" example:"0"`
+	ExperienceLevel string `form:"experience_level" example:"Senior"`
+	EmploymentType  string `form:"employment_type" example:"Full-time"`
+	Location        string `form:"location" example:"Costa Rica"`
+	WorkMode        string `form:"work_mode" example:"Remote"`
+	DateFrom        string `form:"date_from" example:"2024-01-01"`
+	DateTo          string `form:"date_to" example:"2024-12-31"`
+}
+
+// SearchResponse represents the search response with pagination
+type SearchResponse struct {
+	Data       []*Job            `json:"data"`
+	Pagination PaginationDetails `json:"pagination"`
+}
+
+// PaginationDetails contains pagination metadata
+type PaginationDetails struct {
+	Total   int  `json:"total"`
+	Limit   int  `json:"limit"`
+	Offset  int  `json:"offset"`
+	HasMore bool `json:"has_more"`
+}
+
+// ErrorResponse represents an API error response
+type ErrorResponse struct {
+	Error ErrorDetails `json:"error"`
+}
+
+// ErrorDetails contains error information
+type ErrorDetails struct {
+	Code    string   `json:"code"`
+	Message string   `json:"message"`
+	Details []string `json:"details,omitempty"`
+}

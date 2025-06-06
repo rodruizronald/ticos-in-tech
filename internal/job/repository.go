@@ -11,55 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// SQL query constants
-const (
-	// Base query for selecting job fields
-	selectJobBaseQuery = `
-        SELECT id, company_id, title, description, experience_level, employment_type,
-               location, work_mode, application_url, is_active, signature, created_at, updated_at
-        FROM jobs
-    `
-
-	createJobQuery = `
-        INSERT INTO jobs (
-            company_id, title, description, experience_level, employment_type,
-            location, work_mode, application_url, is_active, signature
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING id, created_at, updated_at
-    `
-
-	getJobByIDQuery = selectJobBaseQuery + `
-        WHERE id = $1
-    `
-
-	getJobBySignatureQuery = selectJobBaseQuery + `
-        WHERE signature = $1
-    `
-
-	updateJobQuery = `
-        UPDATE jobs
-        SET company_id = $1, title = $2, description = $3, experience_level = $4,
-            employment_type = $5, location = $6, work_mode = $7, application_url = $8,
-            is_active = $9, signature = $10, updated_at = NOW()
-        WHERE id = $11
-        RETURNING updated_at
-    `
-
-	deleteJobQuery = `DELETE FROM jobs WHERE id = $1`
-
-	// Text search query with weighted ranking (title has more weight than description)
-	searchJobsBaseQuery = `
-        WITH search_query AS (
-            SELECT plainto_tsquery('english', $1) AS query
-        )
-        SELECT 
-            j.id, j.company_id, j.title, j.description, j.experience_level, j.employment_type,
-            j.location, j.work_mode, j.application_url, j.is_active, j.signature, j.created_at, j.updated_at
-        FROM jobs j, search_query sq
-        WHERE j.is_active = true AND j.search_vector @@ sq.query
-	`
-)
-
 // Database interface to support pgxpool and mocks
 type Database interface {
 	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
@@ -91,38 +42,10 @@ type SearchParams struct {
 	DateTo          *time.Time
 }
 
-// Validate ensures search parameters are within acceptable bounds
-func (sp *SearchParams) Validate() error {
-	if strings.TrimSpace(sp.Query) == "" {
-		return errors.New("search query cannot be empty")
-	}
-
-	if sp.Limit <= 0 {
-		sp.Limit = 20 // Default limit
-	}
-
-	if sp.Limit > 100 {
-		sp.Limit = 100 // Max limit to prevent abuse
-	}
-
-	if sp.Offset < 0 {
-		sp.Offset = 0
-	}
-
-	// Validate date range if provided
-	if sp.DateFrom != nil && sp.DateTo != nil {
-		if sp.DateFrom.After(*sp.DateTo) {
-			return errors.New("date from cannot be after date to")
-		}
-	}
-
-	return nil
-}
-
 // Search performs a full-text search on job titles and descriptions with optional filters
 func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, error) {
 	// Validate parameters
-	if err := params.Validate(); err != nil {
+	if err := validateSearchParams(params); err != nil {
 		return nil, fmt.Errorf("invalid search parameters: %w", err)
 	}
 
