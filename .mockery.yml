@@ -6,4 +6,4 @@ packages:
     config:
       filename: mocks.go
     interfaces:
-      JobRepository:
+      DataRepository:

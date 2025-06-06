@@ -24,7 +24,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 	tests := []struct {
 		name         string
 		query        map[string]string
-		mockSetup    func(t *testing.T, m *MockJobRepository)
+		mockSetup    func(t *testing.T, m *MockDataRepository)
 		checkResults func(t *testing.T, w *httptest.ResponseRecorder)
 	}{
 		{
@@ -34,7 +34,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"limit":  "20",
 				"offset": "0",
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				expectedParams := &SearchParams{
 					Query:  "golang developer",
@@ -106,7 +106,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"date_from":        "2024-01-01",
 				"date_to":          "2024-12-31",
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				experienceLevel := "Senior"
 				employmentType := "Full-time"
@@ -167,7 +167,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":     "python developer",
 				"limit": "2",
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				expectedParams := &SearchParams{
 					Query:  "python developer",
@@ -229,7 +229,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"limit":  "20",
 				"offset": "0",
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				expectedParams := &SearchParams{
 					Query:  "nonexistent technology",
@@ -257,7 +257,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 		{
 			name:  "missing required query parameter",
 			query: map[string]string{}, // No 'q' parameter
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - request should fail before reaching repository
 			},
@@ -280,7 +280,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":                "developer",
 				"experience_level": "Invalid Level",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -303,7 +303,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":               "developer",
 				"employment_type": "Invalid Type",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -326,7 +326,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":        "developer",
 				"location": "Invalid Location",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -349,7 +349,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":         "developer",
 				"work_mode": "Invalid Mode",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -372,7 +372,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":         "developer",
 				"date_from": "2024-01-01",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -395,7 +395,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"q":       "developer",
 				"date_to": "2024-12-31",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -419,7 +419,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"date_from": "invalid-date",
 				"date_to":   "2024-12-31",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -443,7 +443,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"date_from": "2024-12-31",
 				"date_to":   "2024-01-01",
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -467,7 +467,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"limit":  "20",
 				"offset": "0",
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				expectedParams := &SearchParams{
 					Query:  "developer",
@@ -500,7 +500,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"offset":           "0",
 				// employment_type and work_mode not provided
 			},
-			mockSetup: func(t *testing.T, m *MockJobRepository) {
+			mockSetup: func(t *testing.T, m *MockDataRepository) {
 				t.Helper()
 				experienceLevel := "Senior"
 				location := "Costa Rica"
@@ -556,7 +556,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 				"date_from":        "2024-12-31",
 				"date_to":          "2024-01-01", // date_from after date_to
 			},
-			mockSetup: func(t *testing.T, _ *MockJobRepository) {
+			mockSetup: func(t *testing.T, _ *MockDataRepository) {
 				t.Helper()
 				// No mock setup needed - validation should fail
 			},
@@ -580,7 +580,7 @@ func TestHandler_SearchJobs(t *testing.T) {
 			t.Parallel()
 
 			// Create mock repository
-			mockRepo := NewMockJobRepository(t)
+			mockRepo := NewMockDataRepository(t)
 			tt.mockSetup(t, mockRepo)
 
 			// Create handler
