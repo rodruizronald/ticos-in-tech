@@ -19,6 +19,14 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
+    - name: Install mockery
+      run: go install github.com/vektra/mockery/v3@v3.3.2
+
+    - name: Verify mocks are up-to-date
+      run: |
+        mockery
+        git diff --exit-code
+
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v7
       with:
