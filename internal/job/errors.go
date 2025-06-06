@@ -53,6 +53,6 @@ func (e *ValidationError) Error() string {
 
 // IsValidation checks if an error is a validation error
 func IsValidation(err error) bool {
-    var validationErr *ValidationError
-    return errors.As(err, &validationErr)
+	var validationErr *ValidationError
+	return errors.As(err, &validationErr)
 }

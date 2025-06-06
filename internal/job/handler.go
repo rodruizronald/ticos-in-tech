@@ -8,18 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// JobRepository interface to make database operations for the Job model.
-type JobRepository interface {
+// DataRepository interface to make database operations for the Job model.
+type DataRepository interface {
 	Search(ctx context.Context, params *SearchParams) ([]*Job, error)
 }
 
 // Handler handles HTTP requests for job operations
 type Handler struct {
-	repo JobRepository
+	repo DataRepository
 }
 
 // NewHandler creates a new job handler
-func NewHandler(repo JobRepository) *Handler {
+func NewHandler(repo DataRepository) *Handler {
 	return &Handler{repo: repo}
 }
 
@@ -37,8 +37,10 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 // @Param q query string true "Search query" example("golang developer")
 // @Param limit query int false "Number of results to return (max 100)" default(20) example(20)
 // @Param offset query int false "Number of results to skip" default(0) example(0)
-// @Param experience_level query string false "Experience level filter" Enums(Entry-level,Junior,Mid-level,Senior,Lead,Principal,Executive) example("Senior")
-// @Param employment_type query string false "Employment type filter" Enums(Full-time,Part-time,Contract,Freelance,Temporary,Internship) example("Full-time")
+// @Param experience_level query string false "Experience level filter" \
+// Enums(Entry-level,Junior,Mid-level,Senior,Lead,Principal,Executive) example("Senior")
+// @Param employment_type query string false "Employment type filter" \
+// Enums(Full-time,Part-time,Contract,Freelance,Temporary,Internship) example("Full-time")
 // @Param location query string false "Location filter" Enums(Costa Rica,LATAM) example("Costa Rica")
 // @Param work_mode query string false "Work mode filter" Enums(Remote,Hybrid,Onsite) example("Remote")
 // @Param date_from query string false "Start date filter (YYYY-MM-DD)" example("2024-01-01")

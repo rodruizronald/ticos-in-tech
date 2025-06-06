@@ -22,23 +22,23 @@ func validateEnum(value string, validValues []string, fieldName string) error {
 
 // validateSearchRequest validates the search request parameters
 func validateSearchRequest(req *SearchRequest) []string {
-	var errors []string
+	var errs []string
 
 	// Validate enum fields
 	if err := validateEnum(req.ExperienceLevel, validExperienceLevels, "experience_level"); err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err.Error())
 	}
 
 	if err := validateEnum(req.EmploymentType, validEmploymentTypes, "employment_type"); err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err.Error())
 	}
 
 	if err := validateEnum(req.Location, validLocations, "location"); err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err.Error())
 	}
 
 	if err := validateEnum(req.WorkMode, validWorkModes, "work_mode"); err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err.Error())
 	}
 
 	// Validate date range - both must be provided if one is provided
@@ -46,28 +46,28 @@ func validateSearchRequest(req *SearchRequest) []string {
 	hasDateTo := req.DateTo != ""
 
 	if hasDateFrom != hasDateTo {
-		errors = append(errors, "both date_from and date_to must be provided together")
+		errs = append(errs, "both date_from and date_to must be provided together")
 	}
 
 	// Validate date format if provided
 	if hasDateFrom && hasDateTo {
 		dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
 		if err != nil {
-			errors = append(errors, "date_from must be in YYYY-MM-DD format")
+			errs = append(errs, "date_from must be in YYYY-MM-DD format")
 		}
 
 		dateTo, err := time.Parse("2006-01-02", req.DateTo)
 		if err != nil {
-			errors = append(errors, "date_to must be in YYYY-MM-DD format")
+			errs = append(errs, "date_to must be in YYYY-MM-DD format")
 		}
 
 		// Check date range if both dates are valid
 		if err == nil && dateFrom.After(dateTo) {
-			errors = append(errors, "date_from cannot be after date_to")
+			errs = append(errs, "date_from cannot be after date_to")
 		}
 	}
 
-	return errors
+	return errs
 }
 
 // validateSearchParams ensures search parameters are within acceptable bounds
