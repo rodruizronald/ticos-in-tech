@@ -32,8 +32,7 @@ docs:
 ./internal/technology,\
 ./internal/jobtech,\
 ./internal/techalias \
-		-o ./docs \
-		--parseInternal
+		-o ./docs
 	@echo "✅ Swagger docs generated successfully"
 
 # Show help
