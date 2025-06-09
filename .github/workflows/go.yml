@@ -22,10 +22,39 @@ jobs:
     - name: Install mockery
       run: go install github.com/vektra/mockery/v3@v3.3.2
 
+    - name: Install swag
+      run: go install github.com/swaggo/swag/cmd/swag@latest
+
     - name: Verify mocks are up-to-date
       run: |
         mockery
-        git diff --exit-code
+        
+        # Check diff exit code
+        git diff --quiet
+        exit_code=$?
+        
+        if [ $exit_code -ne 0 ]; then
+          echo "Mocks are out of date!"
+          echo "Run'mockery' and commit the changes"
+          exit 1
+        fi
+
+    - name: Verify docs are up-to-date
+      run: |
+        swag init \
+          -g main.go \
+          -d ./cmd/server,./internal/job,./internal/company,./internal/technology,./internal/jobtech,./internal/techalias \
+          -o ./docs
+        
+        # Check diff exit code
+        git diff --quiet docs/
+        exit_code=$?
+        
+        if [ $exit_code -ne 0 ]; then
+          echo "Swagger docs are out of date!"
+          echo "Run 'swag init' and commit the changes"
+          exit 1
+        fi
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v7
