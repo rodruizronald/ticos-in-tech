@@ -43,6 +43,8 @@ linters:
         - performance
     cyclop:
       max-complexity: 15
+    lll:
+      line-length: 125
   exclusions:
     paths:
       - migrations
