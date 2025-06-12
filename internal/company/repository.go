@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/rodruizronald/ticos-in-tech/internal/job"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobs"
 )
 
 // SQL query constants
@@ -197,9 +197,9 @@ func (r *Repository) GetWithJobs(ctx context.Context, name string) (*Company, er
 	}
 	defer rows.Close()
 
-	var jobs []job.Job
+	var gotJobs []jobs.Job
 	for rows.Next() {
-		gotJob := job.Job{}
+		gotJob := jobs.Job{}
 		err = rows.Scan(
 			&gotJob.ID,
 			&gotJob.CompanyID,
@@ -218,13 +218,13 @@ func (r *Repository) GetWithJobs(ctx context.Context, name string) (*Company, er
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job row: %w", err)
 		}
-		jobs = append(jobs, gotJob)
+		gotJobs = append(gotJobs, gotJob)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating job rows: %w", err)
 	}
 
-	company.Jobs = jobs
+	company.Jobs = gotJobs
 	return company, nil
 }

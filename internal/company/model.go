@@ -3,7 +3,7 @@ package company
 import (
 	"time"
 
-	"github.com/rodruizronald/ticos-in-tech/internal/job"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobs"
 )
 
 // Company represents a company that posts jobs on the platform.
@@ -16,5 +16,5 @@ type Company struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
 	// Relationships (not stored in database)
-	Jobs []job.Job `json:"jobs,omitempty" db:"-"`
+	Jobs []jobs.Job `json:"jobs,omitempty" db:"-"`
 }
