@@ -181,7 +181,8 @@ func (r *Repository) ListByTechnology(ctx context.Context, technologyID int) ([]
 }
 
 // GetJobTechnologiesBatch fetches technologies for multiple jobs in a single query
-func (r *Repository) GetJobTechnologiesBatch(ctx context.Context, jobIDs []int) (map[int][]*JobTechnologyWithDetails, error) {
+func (r *Repository) GetJobTechnologiesBatch(ctx context.Context, jobIDs []int) (
+	map[int][]*JobTechnologyWithDetails, error) {
 	if len(jobIDs) == 0 {
 		return make(map[int][]*JobTechnologyWithDetails), nil
 	}

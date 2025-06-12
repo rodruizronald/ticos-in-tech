@@ -1,4 +1,4 @@
-package job
+package jobs
 
 import (
 	"context"
@@ -6,21 +6,46 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )
 
 // DataRepository interface to make database operations for the Job model.
 type DataRepository interface {
-	Search(ctx context.Context, params *SearchParams) ([]*Job, error)
+	SearchJobsWithCount(ctx context.Context, params *SearchParams) ([]*JobWithCompany, int, error)
+	GetJobTechnologiesBatch(ctx context.Context, jobIDs []int) (map[int][]*jobtech.JobTechnologyWithDetails, error)
+}
+
+// Repositories struct to hold repositories for job and jobtech models
+type Repositories struct {
+	jobRepo     *Repository
+	jobtechRepo *jobtech.Repository
+}
+
+// SearchJobsWithCount delegates to the job repository's SearchJobsWithCount method
+func (r *Repositories) SearchJobsWithCount(ctx context.Context, params *SearchParams) ([]*JobWithCompany, int, error) {
+	return r.jobRepo.SearchJobsWithCount(ctx, params)
+}
+
+// GetJobTechnologiesBatch delegates to the jobtech repository's GetJobTechnologiesBatch method
+func (r *Repositories) GetJobTechnologiesBatch(ctx context.Context, jobIDs []int) (
+	map[int][]*jobtech.JobTechnologyWithDetails, error) {
+	return r.jobtechRepo.GetJobTechnologiesBatch(ctx, jobIDs)
 }
 
 // Handler handles HTTP requests for job operations
 type Handler struct {
-	repo DataRepository
+	repos DataRepository
+}
+
+// NewRepositories creates a new job and jobtech repositories
+func NewRepositories(jobRepo *Repository, jobtechRepo *jobtech.Repository) *Repositories {
+	return &Repositories{jobRepo: jobRepo, jobtechRepo: jobtechRepo}
 }
 
 // NewHandler creates a new job handler
-func NewHandler(repo DataRepository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repos DataRepository) *Handler {
+	return &Handler{repos: repos}
 }
 
 // RegisterRoutes registers job routes with the given router group
@@ -105,8 +130,8 @@ func (h *Handler) SearchJobs(c *gin.Context) {
 		searchParams.DateTo = &dateTo
 	}
 
-	// Perform search
-	jobs, err := h.repo.Search(c.Request.Context(), searchParams)
+	// Perform search with count in single query
+	jobs, total, err := h.repos.SearchJobsWithCount(c.Request.Context(), searchParams)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: ErrorDetails{
@@ -118,12 +143,33 @@ func (h *Handler) SearchJobs(c *gin.Context) {
 		return
 	}
 
-	// Build response with pagination
-	total := len(jobs)
-	hasMore := total == searchParams.Limit // If we got exactly the limit, there might be more
+	// Get job IDs for batch fetching technologies
+	jobIDs := make([]int, len(jobs))
+	for i, job := range jobs {
+		jobIDs[i] = job.ID
+	}
+
+	// Batch fetch technologies for all jobs
+	technologiesMap, err := h.repos.GetJobTechnologiesBatch(c.Request.Context(), jobIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetails{
+				Code:    ErrCodeSearchError,
+				Message: "Failed to fetch job technologies",
+				Details: []string{err.Error()},
+			},
+		})
+		return
+	}
+
+	// Convert jobs to response format with technologies
+	companyJobsResponseList := GroupJobsByCompany(jobs, technologiesMap)
+
+	// Build response with correct pagination
+	hasMore := searchParams.Offset+len(jobs) < total
 
 	response := SearchResponse{
-		Data: jobs,
+		Data: companyJobsResponseList,
 		Pagination: PaginationDetails{
 			Total:   total,
 			Limit:   searchParams.Limit,

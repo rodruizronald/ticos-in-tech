@@ -664,7 +664,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "successful batch retrieval with multiple jobs",
 			jobIDs: []int{1, 2},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1,$2")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -720,7 +720,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "successful batch retrieval with single job",
 			jobIDs: []int{1},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -748,7 +748,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "empty job IDs slice",
 			jobIDs: []int{},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(_ pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				// No database call expected for empty slice
 			},
@@ -761,7 +761,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "jobs with no technologies",
 			jobIDs: []int{999, 888},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1,$2")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -779,7 +779,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "database error",
 			jobIDs: []int{1, 2},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1,$2")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -796,7 +796,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "scan error",
 			jobIDs: []int{1},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
@@ -817,7 +817,7 @@ func TestRepository_GetJobTechnologiesBatch(t *testing.T) {
 		{
 			name:   "partial results - some jobs have technologies, others don't",
 			jobIDs: []int{1, 2, 3},
-			mockSetup: func(mock pgxmock.PgxPoolIface, jobIDs []int) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ []int) {
 				t.Helper()
 				expectedQuery := fmt.Sprintf(getJobTechnologiesBatchQuery, "$1,$2,$3")
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).

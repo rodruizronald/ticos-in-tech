@@ -1,6 +1,6 @@
-// Package job provides functionality for managing company entities
+// Package jobs provides functionality for managing company entities
 // including CRUD operations, error handling, and business logic.
-package job
+package jobs
 
 import (
 	"errors"

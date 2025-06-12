@@ -1,4 +1,4 @@
-package job
+package jobs
 
 // SQL query constants
 const (
@@ -36,17 +36,20 @@ const (
 
 	deleteJobQuery = `DELETE FROM jobs WHERE id = $1`
 
-	// Text search query with weighted ranking (title has more weight than description)
-	searchJobsBaseQuery = `
+	// Full-text search query with company data and total count using window function
+	searchJobsWithCountBaseQuery = `
         WITH search_query AS (
             SELECT plainto_tsquery('english', $1) AS query
         )
         SELECT 
             j.id, j.company_id, j.title, j.description, j.experience_level, j.employment_type,
-            j.location, j.work_mode, j.application_url, j.is_active, j.signature, j.created_at, j.updated_at
-        FROM jobs j, search_query sq
+            j.location, j.work_mode, j.application_url, j.is_active, j.signature, j.created_at, j.updated_at,
+            c.name as company_name, c.logo_url as company_logo_url,
+            COUNT(*) OVER() as total_count
+        FROM jobs j
+        JOIN companies c ON j.company_id = c.id, search_query sq
         WHERE j.is_active = true AND j.search_vector @@ sq.query
-	`
+    `
 )
 
 // Constants for job attributes and values

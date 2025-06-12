@@ -1,11 +1,10 @@
-package job
+package jobs
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,25 +27,11 @@ func NewRepository(db Database) *Repository {
 	return &Repository{db: db}
 }
 
-// SearchParams defines parameters for job search
-type SearchParams struct {
-	Query  string
-	Limit  int
-	Offset int
-	// Optional filters
-	ExperienceLevel *string
-	EmploymentType  *string
-	Location        *string
-	WorkMode        *string
-	DateFrom        *time.Time
-	DateTo          *time.Time
-}
-
-// Search performs a full-text search on job titles and descriptions with optional filters
-func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, error) {
+// SearchJobsWithCount performs a full-text search and returns both results and total count
+func (r *Repository) SearchJobsWithCount(ctx context.Context, params *SearchParams) ([]*JobWithCompany, int, error) {
 	// Validate parameters
 	if err := validateSearchParams(params); err != nil {
-		return nil, fmt.Errorf("invalid search parameters: %w", err)
+		return nil, 0, fmt.Errorf("invalid search parameters: %w", err)
 	}
 
 	// Trim whitespace from query
@@ -101,7 +86,7 @@ func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, 
 	}
 
 	// Build final search query with ordering and pagination
-	searchQuery := searchJobsBaseQuery + additionalWhere +
+	searchQuery := searchJobsWithCountBaseQuery + additionalWhere +
 		fmt.Sprintf(" ORDER BY j.created_at DESC LIMIT $%d OFFSET $%d", argCount, argCount+1)
 
 	// Add pagination parameters
@@ -110,13 +95,15 @@ func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, 
 	// Execute search query
 	rows, err := r.db.Query(ctx, searchQuery, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search jobs: %w", err)
+		return nil, 0, fmt.Errorf("failed to search jobs: %w", err)
 	}
 	defer rows.Close()
 
-	var jobs []*Job
+	var jobs []*JobWithCompany
+	var total int
+
 	for rows.Next() {
-		job := &Job{}
+		job := &JobWithCompany{}
 		err = rows.Scan(
 			&job.ID,
 			&job.CompanyID,
@@ -131,18 +118,26 @@ func (r *Repository) Search(ctx context.Context, params *SearchParams) ([]*Job, 
 			&job.Signature,
 			&job.CreatedAt,
 			&job.UpdatedAt,
+			&job.CompanyName,
+			&job.CompanyLogoURL,
+			&total, // Window function gives us the same total for each row
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan job row: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan job row: %w", err)
 		}
 		jobs = append(jobs, job)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating job rows: %w", err)
+		return nil, 0, fmt.Errorf("error iterating job rows: %w", err)
 	}
 
-	return jobs, nil
+	// If no results, total should be 0
+	if len(jobs) == 0 {
+		total = 0
+	}
+
+	return jobs, total, nil
 }
 
 // Create inserts a new job into the database.
