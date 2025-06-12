@@ -19,7 +19,7 @@ import (
 
 	"github.com/rodruizronald/ticos-in-tech/internal/company"
 	"github.com/rodruizronald/ticos-in-tech/internal/database"
-	"github.com/rodruizronald/ticos-in-tech/internal/job"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobs"
 	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 	"github.com/rodruizronald/ticos-in-tech/internal/techalias"
 	"github.com/rodruizronald/ticos-in-tech/internal/technology"
@@ -44,7 +44,7 @@ type jobData struct {
 }
 
 // Update the jobs struct to use the Job type
-type jobs struct {
+type internalJobs struct {
 	Jobs []jobData `json:"jobs"`
 }
 
@@ -115,7 +115,7 @@ func setupDatabase(ctx context.Context, log *logrus.Logger) (*pgxpool.Pool, *rep
 
 	// Create repositories
 	repos := &repositories{
-		job:     job.NewRepository(dbpool),
+		job:     jobs.NewRepository(dbpool),
 		company: company.NewRepository(dbpool),
 		jobtech: jobtech.NewRepository(dbpool),
 		tech:    technology.NewRepository(dbpool),
@@ -127,7 +127,7 @@ func setupDatabase(ctx context.Context, log *logrus.Logger) (*pgxpool.Pool, *rep
 
 // repositories holds all the database repositories needed
 type repositories struct {
-	job     *job.Repository
+	job     *jobs.Repository
 	company *company.Repository
 	jobtech *jobtech.Repository
 	tech    *technology.Repository
@@ -135,7 +135,7 @@ type repositories struct {
 }
 
 // readJobData reads and parses the job data from the input file
-func readJobData(inputFile string, log *logrus.Logger) (*jobs, error) {
+func readJobData(inputFile string, log *logrus.Logger) (*internalJobs, error) {
 	log.Infof("Reading job data from %s", inputFile)
 
 	// Read job data from file
@@ -146,7 +146,7 @@ func readJobData(inputFile string, log *logrus.Logger) (*jobs, error) {
 	}
 
 	// Parse job data
-	var jobData jobs
+	var jobData internalJobs
 	if err := json.Unmarshal(data, &jobData); err != nil {
 		log.Errorf("Failed to parse job data: %v", err)
 		return nil, err
@@ -157,7 +157,7 @@ func readJobData(inputFile string, log *logrus.Logger) (*jobs, error) {
 }
 
 // processJobs processes each job and returns a map of missing technologies
-func processJobs(ctx context.Context, jobData *jobs, repos *repositories,
+func processJobs(ctx context.Context, jobData *internalJobs, repos *repositories,
 	log *logrus.Logger) (map[string][]string, error) {
 	// Create a map to track missing technologies
 	missingTechnologies := make(map[string][]string) // company -> list of missing tech names
@@ -195,7 +195,7 @@ func processJob(ctx context.Context, j *jobData, repos *repositories, log *logru
 	companyID := jobCompany.ID
 
 	// Create job model
-	jobModel := &job.Job{
+	jobModel := &jobs.Job{
 		CompanyID:       companyID,
 		Title:           j.Title,
 		Description:     j.Description,
@@ -222,11 +222,11 @@ func processJob(ctx context.Context, j *jobData, repos *repositories, log *logru
 }
 
 // createOrRetrieveJob creates a new job or retrieves an existing one
-func createOrRetrieveJob(ctx context.Context, jobModel *job.Job, j *jobData, jobRepo *job.Repository,
+func createOrRetrieveJob(ctx context.Context, jobModel *jobs.Job, j *jobData, jobRepo *jobs.Repository,
 	log *logrus.Logger) error {
 	err := jobRepo.Create(ctx, jobModel)
 	if err != nil {
-		if job.IsDuplicate(err) {
+		if jobs.IsDuplicate(err) {
 			log.Infof("Job already exists: %s at %s", j.Title, j.Company)
 
 			// Get the existing job by signature to retrieve its ID
@@ -248,7 +248,7 @@ func createOrRetrieveJob(ctx context.Context, jobModel *job.Job, j *jobData, job
 }
 
 // processTechnologies processes all technologies for a job
-func processTechnologies(ctx context.Context, j *jobData, jobModel *job.Job, repos *repositories,
+func processTechnologies(ctx context.Context, j *jobData, jobModel *jobs.Job, repos *repositories,
 	log *logrus.Logger) ([]string, error) {
 	var missingTechs []string
 

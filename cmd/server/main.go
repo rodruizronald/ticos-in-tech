@@ -23,7 +23,8 @@ import (
 
 	_ "github.com/rodruizronald/ticos-in-tech/docs"
 	"github.com/rodruizronald/ticos-in-tech/internal/database"
-	"github.com/rodruizronald/ticos-in-tech/internal/job"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobs"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )
 
 func main() {
@@ -69,9 +70,10 @@ func run(ctx context.Context) error {
 	// API routes
 	v1 := r.Group("/api/v1")
 
-	// Job routes
-	jobRepo := job.NewRepository(dbpool)
-	jobHandler := job.NewHandler(jobRepo)
+	jobRepo := jobs.NewRepository(dbpool)
+	jobtechRepo := jobtech.NewRepository(dbpool)
+	jobRepos := jobs.NewRepositories(jobRepo, jobtechRepo)
+	jobHandler := jobs.NewHandler(jobRepos)
 	jobHandler.RegisterRoutes(v1)
 
 	port := "8080"
