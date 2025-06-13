@@ -32,14 +32,14 @@ type JobWithCompany struct {
 
 // SearchParams defines parameters for job search (repository layer)
 type SearchParams struct {
-	Query  string
-	Limit  int
-	Offset int
-	// Optional filters
+	Query           string
+	Limit           int
+	Offset          int
 	ExperienceLevel *string
 	EmploymentType  *string
 	Location        *string
 	WorkMode        *string
+	Company         *string
 	DateFrom        *time.Time
 	DateTo          *time.Time
 }

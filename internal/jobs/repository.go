@@ -67,6 +67,12 @@ func (r *Repository) SearchJobsWithCount(ctx context.Context, params *SearchPara
 		argCount++
 	}
 
+	if params.Company != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(c.name) LIKE LOWER($%d)", argCount))
+		args = append(args, "%"+*params.Company+"%")
+		argCount++
+	}
+
 	if params.DateFrom != nil {
 		whereConditions = append(whereConditions, fmt.Sprintf("j.created_at >= $%d", argCount))
 		args = append(args, *params.DateFrom)

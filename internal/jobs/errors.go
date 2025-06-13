@@ -56,3 +56,14 @@ func IsValidation(err error) bool {
 	var validationErr *ValidationError
 	return errors.As(err, &validationErr)
 }
+
+// HandlerError represents an error with HTTP status code and response
+type HandlerError struct {
+	StatusCode    int
+	ErrorResponse ErrorResponse
+}
+
+// Error implements the error interface
+func (e *HandlerError) Error() string {
+	return e.ErrorResponse.Error.Message
+}

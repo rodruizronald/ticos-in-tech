@@ -1,6 +1,9 @@
 package jobs
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Data Transfer Objects (DTOs) for the job API layer.
 // This file contains request/response structures used for HTTP API communication.
@@ -16,8 +19,51 @@ type SearchRequest struct {
 	EmploymentType  string `form:"employment_type" example:"Full-time"`
 	Location        string `form:"location" example:"Costa Rica"`
 	WorkMode        string `form:"work_mode" example:"Remote"`
+	Company         string `form:"company" example:"Tech Corp"`
 	DateFrom        string `form:"date_from" example:"2024-01-01"`
 	DateTo          string `form:"date_to" example:"2024-12-31"`
+}
+
+// ToSearchParams converts a SearchRequest to SearchParams
+func (req *SearchRequest) ToSearchParams() (*SearchParams, error) {
+	searchParams := &SearchParams{
+		Query:  req.Query,
+		Limit:  req.Limit,
+		Offset: req.Offset,
+	}
+
+	// Set optional filters
+	if req.ExperienceLevel != "" {
+		searchParams.ExperienceLevel = &req.ExperienceLevel
+	}
+	if req.EmploymentType != "" {
+		searchParams.EmploymentType = &req.EmploymentType
+	}
+	if req.Location != "" {
+		searchParams.Location = &req.Location
+	}
+	if req.WorkMode != "" {
+		searchParams.WorkMode = &req.WorkMode
+	}
+	if req.Company != "" {
+		searchParams.Company = &req.Company
+	}
+
+	// Parse dates if provided
+	if req.DateFrom != "" && req.DateTo != "" {
+		dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date_from format: %w", err)
+		}
+		dateTo, err := time.Parse("2006-01-02", req.DateTo)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date_to format: %w", err)
+		}
+		searchParams.DateFrom = &dateFrom
+		searchParams.DateTo = &dateTo
+	}
+
+	return searchParams, nil
 }
 
 // JobResponse represents the API response for a single job
@@ -42,17 +88,10 @@ type TechnologyResponse struct {
 	Required bool   `json:"required"`
 }
 
-// CompanyJobsResponse represents grouped jobs by company
-type CompanyJobsResponse struct {
-	CompanyName    string         `json:"company_name"`
-	CompanyLogoURL string         `json:"company_logo_url"`
-	Jobs           []*JobResponse `json:"jobs"`
-}
-
 // SearchResponse represents the search response with pagination
 type SearchResponse struct {
-	Data       []*CompanyJobsResponse `json:"data"`
-	Pagination PaginationDetails      `json:"pagination"`
+	Data       []*JobResponse    `json:"data"`
+	Pagination PaginationDetails `json:"pagination"`
 }
 
 // PaginationDetails contains pagination metadata

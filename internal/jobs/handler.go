@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -68,6 +67,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 // Enums(Full-time,Part-time,Contract,Freelance,Temporary,Internship) example("Full-time")
 // @Param location query string false "Location filter" Enums(Costa Rica,LATAM) example("Costa Rica")
 // @Param work_mode query string false "Work mode filter" Enums(Remote,Hybrid,Onsite) example("Remote")
+// @Param company query string false "Company name filter (partial match)" example("Tech Corp")
 // @Param date_from query string false "Start date filter (YYYY-MM-DD)" example("2024-01-01")
 // @Param date_to query string false "End date filter (YYYY-MM-DD)" example("2024-12-31")
 // @Success 200 {object} SearchResponse
@@ -75,72 +75,90 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 // @Failure 500 {object} ErrorResponse
 // @Router /jobs [get]
 func (h *Handler) SearchJobs(c *gin.Context) {
+	// Parse and validate request
+	searchParams, err := h.parseAndValidateRequest(c)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	// Execute search
+	jobs, total, err := h.executeSearch(c.Request.Context(), searchParams)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	// Build and send response
+	response := h.buildSearchResponse(jobs, total, searchParams)
+	c.JSON(http.StatusOK, response)
+}
+
+// parseAndValidateRequest handles request parsing and validation
+func (h *Handler) parseAndValidateRequest(c *gin.Context) (*SearchParams, error) {
 	var req SearchRequest
 
 	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: ErrorDetails{
-				Code:    ErrCodeInvalidRequest,
-				Message: "Invalid request parameters",
-				Details: []string{err.Error()},
+		return nil, &HandlerError{
+			StatusCode: http.StatusBadRequest,
+			ErrorResponse: ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeInvalidRequest,
+					Message: "Invalid request parameters",
+					Details: []string{err.Error()},
+				},
 			},
-		})
-		return
+		}
 	}
 
 	// Validate request
 	if validationErrors := validateSearchRequest(&req); len(validationErrors) > 0 {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: ErrorDetails{
-				Code:    ErrCodeValidationError,
-				Message: "Invalid search parameters",
-				Details: validationErrors,
+		return nil, &HandlerError{
+			StatusCode: http.StatusBadRequest,
+			ErrorResponse: ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeValidationError,
+					Message: "Invalid search parameters",
+					Details: validationErrors,
+				},
 			},
-		})
-		return
+		}
 	}
 
 	// Convert request to search parameters
-	searchParams := &SearchParams{
-		Query:  req.Query,
-		Limit:  req.Limit,
-		Offset: req.Offset,
-	}
-
-	// Set optional filters
-	if req.ExperienceLevel != "" {
-		searchParams.ExperienceLevel = &req.ExperienceLevel
-	}
-	if req.EmploymentType != "" {
-		searchParams.EmploymentType = &req.EmploymentType
-	}
-	if req.Location != "" {
-		searchParams.Location = &req.Location
-	}
-	if req.WorkMode != "" {
-		searchParams.WorkMode = &req.WorkMode
-	}
-
-	// Parse dates if provided
-	if req.DateFrom != "" && req.DateTo != "" {
-		dateFrom, _ := time.Parse("2006-01-02", req.DateFrom)
-		dateTo, _ := time.Parse("2006-01-02", req.DateTo)
-		searchParams.DateFrom = &dateFrom
-		searchParams.DateTo = &dateTo
-	}
-
-	// Perform search with count in single query
-	jobs, total, err := h.repos.SearchJobsWithCount(c.Request.Context(), searchParams)
+	searchParams, err := req.ToSearchParams()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: ErrorDetails{
-				Code:    ErrCodeSearchError,
-				Message: "Failed to search jobs",
-				Details: []string{err.Error()},
+		return nil, &HandlerError{
+			StatusCode: http.StatusBadRequest,
+			ErrorResponse: ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeValidationError,
+					Message: "Invalid search parameters",
+					Details: []string{err.Error()},
+				},
 			},
-		})
-		return
+		}
+	}
+
+	return searchParams, nil
+}
+
+// executeSearch performs the job search and technology fetching
+func (h *Handler) executeSearch(ctx context.Context, searchParams *SearchParams) ([]*JobResponse, int, error) {
+	// Perform search with count in single query
+	jobs, total, err := h.repos.SearchJobsWithCount(ctx, searchParams)
+	if err != nil {
+		return nil, 0, &HandlerError{
+			StatusCode: http.StatusInternalServerError,
+			ErrorResponse: ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeSearchError,
+					Message: "Failed to search jobs",
+					Details: []string{err.Error()},
+				},
+			},
+		}
 	}
 
 	// Get job IDs for batch fetching technologies
@@ -150,26 +168,33 @@ func (h *Handler) SearchJobs(c *gin.Context) {
 	}
 
 	// Batch fetch technologies for all jobs
-	technologiesMap, err := h.repos.GetJobTechnologiesBatch(c.Request.Context(), jobIDs)
+	technologiesMap, err := h.repos.GetJobTechnologiesBatch(ctx, jobIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: ErrorDetails{
-				Code:    ErrCodeSearchError,
-				Message: "Failed to fetch job technologies",
-				Details: []string{err.Error()},
+		return nil, 0, &HandlerError{
+			StatusCode: http.StatusInternalServerError,
+			ErrorResponse: ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeSearchError,
+					Message: "Failed to fetch job technologies",
+					Details: []string{err.Error()},
+				},
 			},
-		})
-		return
+		}
 	}
 
 	// Convert jobs to response format with technologies
-	companyJobsResponseList := GroupJobsByCompany(jobs, technologiesMap)
+	searchResult := MapJobsToResponse(jobs, technologiesMap)
 
+	return searchResult, total, nil
+}
+
+// buildSearchResponse constructs the final response
+func (h *Handler) buildSearchResponse(jobs []*JobResponse, total int, searchParams *SearchParams) SearchResponse {
 	// Build response with correct pagination
 	hasMore := searchParams.Offset+len(jobs) < total
 
-	response := SearchResponse{
-		Data: companyJobsResponseList,
+	return SearchResponse{
+		Data: jobs,
 		Pagination: PaginationDetails{
 			Total:   total,
 			Limit:   searchParams.Limit,
@@ -177,6 +202,21 @@ func (h *Handler) SearchJobs(c *gin.Context) {
 			HasMore: hasMore,
 		},
 	}
+}
 
-	c.JSON(http.StatusOK, response)
+// handleError handles error responses
+func (h *Handler) handleError(c *gin.Context, err error) {
+	if handlerErr, ok := err.(*HandlerError); ok {
+		c.JSON(handlerErr.StatusCode, handlerErr.ErrorResponse)
+		return
+	}
+
+	// Fallback for unexpected errors
+	c.JSON(http.StatusInternalServerError, ErrorResponse{
+		Error: ErrorDetails{
+			Code:    ErrCodeInternalError,
+			Message: "Internal server error",
+			Details: []string{err.Error()},
+		},
+	})
 }

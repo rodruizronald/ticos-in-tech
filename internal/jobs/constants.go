@@ -118,6 +118,7 @@ const (
 
 // Constants for error codes and messages
 const (
+	ErrCodeInternalError   = "INTERNAL_ERROR"
 	ErrCodeInvalidRequest  = "INVALID_REQUEST"
 	ErrCodeValidationError = "VALIDATION_ERROR"
 	ErrCodeSearchError     = "SEARCH_ERROR"
