@@ -4,46 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-)
-
-// SQL query constants
-const (
-	createJobTechnologyQuery = `
-        INSERT INTO job_technologies (job_id, technology_id, is_required)
-        VALUES ($1, $2, $3)
-        RETURNING id, created_at
-    `
-
-	getJobTechnologyByJobAndTechQuery = `
-        SELECT id, job_id, technology_id, is_required, created_at
-        FROM job_technologies
-        WHERE job_id = $1 AND technology_id = $2
-    `
-
-	updateJobTechnologyQuery = `
-        UPDATE job_technologies
-        SET is_required = $1
-        WHERE id = $2
-    `
-
-	deleteJobTechnologyQuery = `DELETE FROM job_technologies WHERE id = $1`
-
-	listJobTechnologiesByJobQuery = `
-        SELECT id, job_id, technology_id, is_required, created_at
-        FROM job_technologies
-        WHERE job_id = $1
-        ORDER BY id
-    `
-
-	listJobTechnologiesByTechnologyQuery = `
-        SELECT id, job_id, technology_id, is_required, created_at
-        FROM job_technologies
-        WHERE technology_id = $1
-        ORDER BY created_at DESC
-    `
 )
 
 // Database interface to support pgxpool and mocks
@@ -214,4 +178,51 @@ func (r *Repository) ListByTechnology(ctx context.Context, technologyID int) ([]
 	}
 
 	return jobTechnologies, nil
+}
+
+// GetJobTechnologiesBatch fetches technologies for multiple jobs in a single query
+func (r *Repository) GetJobTechnologiesBatch(ctx context.Context, jobIDs []int) (
+	map[int][]*JobTechnologyWithDetails, error) {
+	if len(jobIDs) == 0 {
+		return make(map[int][]*JobTechnologyWithDetails), nil
+	}
+
+	// Build query with IN clause for multiple job IDs
+	placeholders := make([]string, len(jobIDs))
+	args := make([]any, len(jobIDs))
+	for i, jobID := range jobIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = jobID
+	}
+
+	query := fmt.Sprintf(getJobTechnologiesBatchQuery, strings.Join(placeholders, ","))
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job technologies: %w", err)
+	}
+	defer rows.Close()
+
+	// Group technologies by job ID
+	technologiesMap := make(map[int][]*JobTechnologyWithDetails)
+	for rows.Next() {
+		tech := &JobTechnologyWithDetails{}
+		err = rows.Scan(
+			&tech.JobID,
+			&tech.TechnologyID,
+			&tech.IsRequired,
+			&tech.TechName,
+			&tech.TechCategory,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan job technology row: %w", err)
+		}
+		technologiesMap[tech.JobID] = append(technologiesMap[tech.JobID], tech)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating job technology rows: %w", err)
+	}
+
+	return technologiesMap, nil
 }

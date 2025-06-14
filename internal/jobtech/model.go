@@ -7,9 +7,18 @@ import (
 // JobTechnology represents the association between a job and a technology,
 // including additional metadata about the relationship.
 type JobTechnology struct {
-	ID           int       `json:"id" db:"id"`
-	JobID        int       `json:"job_id" db:"job_id"`
-	TechnologyID int       `json:"technology_id" db:"technology_id"`
-	IsRequired   bool      `json:"is_required" db:"is_required"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	ID           int       `db:"id"`
+	JobID        int       `db:"job_id"`
+	TechnologyID int       `db:"technology_id"`
+	IsRequired   bool      `db:"is_required"`
+	CreatedAt    time.Time `db:"created_at"`
+}
+
+// JobTechnologyWithDetails represents a job-technology association with full technology details
+type JobTechnologyWithDetails struct {
+	JobID        int    `db:"job_id"`
+	TechnologyID int    `db:"technology_id"`
+	TechName     string `db:"tech_name"`
+	TechCategory string `db:"tech_category"`
+	IsRequired   bool   `db:"is_required"`
 }

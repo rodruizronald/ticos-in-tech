@@ -1,6 +1,6 @@
-// Package job provides functionality for managing company entities
+// Package jobs provides functionality for managing company entities
 // including CRUD operations, error handling, and business logic.
-package job
+package jobs
 
 import (
 	"errors"
@@ -39,20 +39,4 @@ func (e DuplicateError) Error() string {
 func IsDuplicate(err error) bool {
 	var duplicateErr *DuplicateError
 	return errors.As(err, &duplicateErr)
-}
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	Field string
-}
-
-// Error implements the error interface
-func (e *ValidationError) Error() string {
-	return fmt.Sprintf("validation failed for field: %s", e.Field)
-}
-
-// IsValidation checks if an error is a validation error
-func IsValidation(err error) bool {
-	var validationErr *ValidationError
-	return errors.As(err, &validationErr)
 }

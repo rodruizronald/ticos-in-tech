@@ -43,7 +43,7 @@ jobs:
       run: |
         swag init \
           -g main.go \
-          -d ./cmd/server,./internal/job,./internal/company,./internal/technology,./internal/jobtech,./internal/techalias \
+          -d ./cmd/server,./internal/jobs,./internal/company,./internal/technology,./internal/jobtech,./internal/techalias \
           -o ./docs
         
         # Check diff exit code

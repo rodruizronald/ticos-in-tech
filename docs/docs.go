@@ -93,6 +93,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "\"Tech Corp\"",
+                        "description": "Company name filter (partial match)",
+                        "name": "company",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "example": "\"2024-01-01\"",
                         "description": "Start date filter (YYYY-MM-DD)",
                         "name": "date_from",
@@ -110,19 +117,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/job.SearchResponse"
+                            "$ref": "#/definitions/jobs.SearchResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/job.ErrorResponse"
+                            "$ref": "#/definitions/jobs.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/job.ErrorResponse"
+                            "$ref": "#/definitions/jobs.ErrorResponse"
                         }
                     }
                 }
@@ -130,7 +137,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "job.ErrorDetails": {
+        "jobs.ErrorDetails": {
             "type": "object",
             "properties": {
                 "code": {
@@ -147,15 +154,15 @@ const docTemplate = `{
                 }
             }
         },
-        "job.ErrorResponse": {
+        "jobs.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
-                    "$ref": "#/definitions/job.ErrorDetails"
+                    "$ref": "#/definitions/jobs.ErrorDetails"
                 }
             }
         },
-        "job.Job": {
+        "jobs.JobResponse": {
             "type": "object",
             "properties": {
                 "application_url": {
@@ -164,7 +171,10 @@ const docTemplate = `{
                 "company_id": {
                     "type": "integer"
                 },
-                "created_at": {
+                "company_logo_url": {
+                    "type": "string"
+                },
+                "company_name": {
                     "type": "string"
                 },
                 "description": {
@@ -176,29 +186,22 @@ const docTemplate = `{
                 "experience_level": {
                     "type": "string"
                 },
-                "id": {
+                "job_id": {
                     "type": "integer"
-                },
-                "is_active": {
-                    "type": "boolean"
                 },
                 "location": {
                     "type": "string"
                 },
-                "signature": {
+                "posted_at": {
                     "type": "string"
                 },
                 "technologies": {
-                    "description": "Relationships (not stored in database)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/jobtech.JobTechnology"
+                        "$ref": "#/definitions/jobs.TechnologyResponse"
                     }
                 },
                 "title": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "work_mode": {
@@ -206,7 +209,7 @@ const docTemplate = `{
                 }
             }
         },
-        "job.PaginationDetails": {
+        "jobs.PaginationDetails": {
             "type": "object",
             "properties": {
                 "has_more": {
@@ -223,37 +226,31 @@ const docTemplate = `{
                 }
             }
         },
-        "job.SearchResponse": {
+        "jobs.SearchResponse": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/job.Job"
+                        "$ref": "#/definitions/jobs.JobResponse"
                     }
                 },
                 "pagination": {
-                    "$ref": "#/definitions/job.PaginationDetails"
+                    "$ref": "#/definitions/jobs.PaginationDetails"
                 }
             }
         },
-        "jobtech.JobTechnology": {
+        "jobs.TechnologyResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "category": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "integer"
+                "name": {
+                    "type": "string"
                 },
-                "is_required": {
+                "required": {
                     "type": "boolean"
-                },
-                "job_id": {
-                    "type": "integer"
-                },
-                "technology_id": {
-                    "type": "integer"
                 }
             }
         }
