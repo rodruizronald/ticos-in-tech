@@ -27,7 +27,7 @@ docs:
 	@swag init \
 		-g main.go \
 		-d ./cmd/server,\
-./internal/job,\
+./internal/jobs,\
 ./internal/company,\
 ./internal/technology,\
 ./internal/jobtech,\

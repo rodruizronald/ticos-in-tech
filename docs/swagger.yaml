@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  job.ErrorDetails:
+  jobs.ErrorDetails:
     properties:
       code:
         type: string
@@ -11,18 +11,20 @@ definitions:
       message:
         type: string
     type: object
-  job.ErrorResponse:
+  jobs.ErrorResponse:
     properties:
       error:
-        $ref: '#/definitions/job.ErrorDetails'
+        $ref: '#/definitions/jobs.ErrorDetails'
     type: object
-  job.Job:
+  jobs.JobResponse:
     properties:
       application_url:
         type: string
       company_id:
         type: integer
-      created_at:
+      company_logo_url:
+        type: string
+      company_name:
         type: string
       description:
         type: string
@@ -30,27 +32,22 @@ definitions:
         type: string
       experience_level:
         type: string
-      id:
+      job_id:
         type: integer
-      is_active:
-        type: boolean
       location:
         type: string
-      signature:
+      posted_at:
         type: string
       technologies:
-        description: Relationships (not stored in database)
         items:
-          $ref: '#/definitions/jobtech.JobTechnology'
+          $ref: '#/definitions/jobs.TechnologyResponse'
         type: array
       title:
-        type: string
-      updated_at:
         type: string
       work_mode:
         type: string
     type: object
-  job.PaginationDetails:
+  jobs.PaginationDetails:
     properties:
       has_more:
         type: boolean
@@ -61,27 +58,23 @@ definitions:
       total:
         type: integer
     type: object
-  job.SearchResponse:
+  jobs.SearchResponse:
     properties:
       data:
         items:
-          $ref: '#/definitions/job.Job'
+          $ref: '#/definitions/jobs.JobResponse'
         type: array
       pagination:
-        $ref: '#/definitions/job.PaginationDetails'
+        $ref: '#/definitions/jobs.PaginationDetails'
     type: object
-  jobtech.JobTechnology:
+  jobs.TechnologyResponse:
     properties:
-      created_at:
+      category:
         type: string
-      id:
-        type: integer
-      is_required:
+      name:
+        type: string
+      required:
         type: boolean
-      job_id:
-        type: integer
-      technology_id:
-        type: integer
     type: object
 host: localhost:8080
 info:
@@ -141,6 +134,11 @@ paths:
         in: query
         name: work_mode
         type: string
+      - description: Company name filter (partial match)
+        example: '"Tech Corp"'
+        in: query
+        name: company
+        type: string
       - description: Start date filter (YYYY-MM-DD)
         example: '"2024-01-01"'
         in: query
@@ -157,15 +155,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/job.SearchResponse'
+            $ref: '#/definitions/jobs.SearchResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/job.ErrorResponse'
+            $ref: '#/definitions/jobs.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/job.ErrorResponse'
+            $ref: '#/definitions/jobs.ErrorResponse'
       summary: Search for jobs
       tags:
       - jobs
