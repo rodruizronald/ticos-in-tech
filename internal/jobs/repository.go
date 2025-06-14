@@ -10,6 +10,65 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// SQL query constants
+const (
+	// Base query for selecting job fields
+	selectJobBaseQuery = `
+        SELECT id, company_id, title, description, experience_level, employment_type,
+               location, work_mode, application_url, is_active, signature, created_at, updated_at
+        FROM jobs
+    `
+
+	createJobQuery = `
+        INSERT INTO jobs (
+            company_id, title, description, experience_level, employment_type,
+            location, work_mode, application_url, is_active, signature
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, created_at, updated_at
+    `
+
+	getJobByIDQuery = selectJobBaseQuery + `
+        WHERE id = $1
+    `
+
+	getJobBySignatureQuery = selectJobBaseQuery + `
+        WHERE signature = $1
+    `
+
+	updateJobQuery = `
+        UPDATE jobs
+        SET company_id = $1, title = $2, description = $3, experience_level = $4,
+            employment_type = $5, location = $6, work_mode = $7, application_url = $8,
+            is_active = $9, signature = $10, updated_at = NOW()
+        WHERE id = $11
+        RETURNING updated_at
+    `
+
+	deleteJobQuery = `DELETE FROM jobs WHERE id = $1`
+
+	// Full-text search query with company data and total count using window function
+	searchJobsWithCountBaseQuery = `
+        WITH search_query AS (
+            SELECT plainto_tsquery('english', $1) AS query
+        )
+        SELECT 
+            j.id, j.company_id, j.title, j.description, j.experience_level, j.employment_type,
+            j.location, j.work_mode, j.application_url, j.is_active, j.signature, j.created_at, j.updated_at,
+            c.name as company_name, c.logo_url as company_logo_url,
+            COUNT(*) OVER() as total_count
+        FROM jobs j
+        JOIN companies c ON j.company_id = c.id, search_query sq
+        WHERE j.is_active = true AND j.search_vector @@ sq.query
+    `
+)
+
+// Constants for pagination
+const (
+	// Default pagination limit for search requests. Can be overridden by clients.
+	DefaultLimit = 20
+	MaxLimit     = 100
+)
+
 // Database interface to support pgxpool and mocks
 type Database interface {
 	QueryRow(ctx context.Context, query string, args ...any) pgx.Row

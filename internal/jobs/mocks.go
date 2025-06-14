@@ -96,8 +96,8 @@ func (_c *MockDataRepository_GetJobTechnologiesBatch_Call) Run(run func(ctx cont
 	return _c
 }
 
-func (_c *MockDataRepository_GetJobTechnologiesBatch_Call) Return(intToJobTechWithDetailss map[int][]*jobtech.JobTechnologyWithDetails, err error) *MockDataRepository_GetJobTechnologiesBatch_Call {
-	_c.Call.Return(intToJobTechWithDetailss, err)
+func (_c *MockDataRepository_GetJobTechnologiesBatch_Call) Return(intToJobTechnologyWithDetailss map[int][]*jobtech.JobTechnologyWithDetails, err error) *MockDataRepository_GetJobTechnologiesBatch_Call {
+	_c.Call.Return(intToJobTechnologyWithDetailss, err)
 	return _c
 }
 

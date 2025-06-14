@@ -6,15 +6,15 @@ import (
 	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
 )
 
-type JobSearchService struct {
+type SearchService struct {
 	repos DataRepository
 }
 
-func NewJobSearchService(repos DataRepository) httpservice.SearchService[*SearchParams, JobResponseList] {
-	return &JobSearchService{repos: repos}
+func NewSearchService(repos DataRepository) httpservice.SearchService[*SearchParams, JobResponseList] {
+	return &SearchService{repos: repos}
 }
 
-func (s *JobSearchService) ExecuteSearch(ctx context.Context, params *SearchParams) (JobResponseList, int, error) {
+func (s *SearchService) ExecuteSearch(ctx context.Context, params *SearchParams) (JobResponseList, int, error) {
 	// Your existing business logic
 	jobs, total, err := s.repos.SearchJobsWithCount(ctx, params)
 	if err != nil {

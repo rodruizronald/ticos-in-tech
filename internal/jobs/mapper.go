@@ -10,41 +10,43 @@ import "github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 // MapJobToResponse converts a single job with company data to API response format.
 // It transforms a database model into a DTO suitable for API responses.
 func MapJobToResponse(job *JobWithCompany, technologies []TechnologyResponse) *JobResponse {
-    return &JobResponse{
-        ID:              job.ID,
-        CompanyID:       job.CompanyID,
-        Title:           job.Title,
-        Description:     job.Description,
-        ExperienceLevel: job.ExperienceLevel,
-        EmploymentType:  job.EmploymentType,
-        Location:        job.Location,
-        WorkMode:        job.WorkMode,
-        ApplicationURL:  job.ApplicationURL,
-        Technologies:    technologies,
-        PostedAt:        job.CreatedAt,
-    }
+	return &JobResponse{
+		ID:              job.ID,
+		CompanyID:       job.CompanyID,
+		CompanyName:     job.CompanyName,
+		CompanyLogoURL:  job.CompanyLogoURL,
+		Title:           job.Title,
+		Description:     job.Description,
+		ExperienceLevel: job.ExperienceLevel,
+		EmploymentType:  job.EmploymentType,
+		Location:        job.Location,
+		WorkMode:        job.WorkMode,
+		ApplicationURL:  job.ApplicationURL,
+		Technologies:    technologies,
+		PostedAt:        job.CreatedAt,
+	}
 }
 
 // MapJobsToResponse converts jobs with technologies to API response format.
 // It takes jobs with company data and technologies map, transforming them into JobResponse DTOs.
 func MapJobsToResponse(jobs []*JobWithCompany, techMap map[int][]*jobtech.JobTechnologyWithDetails) []*JobResponse {
-    jobResponses := make([]*JobResponse, len(jobs))
+	jobResponses := make([]*JobResponse, len(jobs))
 
-    for i, job := range jobs {
-        // Convert technologies for this job
-        jobTechnologies := techMap[job.ID]
-        technologies := make([]TechnologyResponse, len(jobTechnologies))
-        for j, tech := range jobTechnologies {
-            technologies[j] = TechnologyResponse{
-                Name:     tech.TechName,
-                Category: tech.TechCategory,
-                Required: tech.IsRequired,
-            }
-        }
+	for i, job := range jobs {
+		// Convert technologies for this job
+		jobTechnologies := techMap[job.ID]
+		technologies := make([]TechnologyResponse, len(jobTechnologies))
+		for j, tech := range jobTechnologies {
+			technologies[j] = TechnologyResponse{
+				Name:     tech.TechName,
+				Category: tech.TechCategory,
+				Required: tech.IsRequired,
+			}
+		}
 
-        // Use the single job mapper
-        jobResponses[i] = MapJobToResponse(job, technologies)
-    }
+		// Use the single job mapper
+		jobResponses[i] = MapJobToResponse(job, technologies)
+	}
 
-    return jobResponses
+	return jobResponses
 }

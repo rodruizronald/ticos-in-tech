@@ -8,6 +8,11 @@ import (
 	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )
 
+// Constants for job routes and endpoints
+const (
+	JobsRoute = "/jobs"
+)
+
 // DataRepository interface to make database operations for the Job model.
 type DataRepository interface {
 	SearchJobsWithCount(ctx context.Context, params *SearchParams) ([]*JobWithCompany, int, error)
@@ -44,12 +49,12 @@ func NewRepositories(jobRepo *Repository, jobtechRepo *jobtech.Repository) *Repo
 // NewHandler creates a new job handler using httpservice.NewSearchHandlerWithDefaults
 func NewHandler(repos DataRepository) *Handler {
 	// Create the search service
-	jobSearchService := NewJobSearchService(repos)
+	searchService := NewSearchService(repos)
 
 	// Create the generic search handler with defaults
 	searchHandler := httpservice.NewSearchHandlerWithDefaults(
 		func() *SearchRequest { return &SearchRequest{} }, // Request factory function
-		jobSearchService,
+		searchService,
 	)
 
 	return &Handler{

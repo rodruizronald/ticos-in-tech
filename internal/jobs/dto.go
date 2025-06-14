@@ -9,6 +9,71 @@ import (
 	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
 )
 
+// Constants for job attributes and values
+const (
+	// Experience levels
+	experienceLevelEntry     = "Entry-level"
+	experienceLevelJunior    = "Junior"
+	experienceLevelMid       = "Mid-level"
+	experienceLevelSenior    = "Senior"
+	experienceLevelLead      = "Lead"
+	experienceLevelPrincipal = "Principal"
+	experienceLevelExecutive = "Executive"
+
+	// Employment types
+	employmentTypeFullTime   = "Full-time"
+	employmentTypePartTime   = "Part-time"
+	employmentTypeContract   = "Contract"
+	employmentTypeFreelance  = "Freelance"
+	employmentTypeTemporary  = "Temporary"
+	employmentTypeInternship = "Internship"
+
+	// Locations
+	locationCostaRica = "Costa Rica"
+	locationLATAM     = "LATAM"
+
+	// Work modes
+	workModeRemote = "Remote"
+	workModeHybrid = "Hybrid"
+	workModeOnsite = "Onsite"
+)
+
+// Validation collections for job attributes and values
+var (
+	validExperienceLevels = []string{
+		experienceLevelEntry,
+		experienceLevelJunior,
+		experienceLevelMid,
+		experienceLevelSenior,
+		experienceLevelLead,
+		experienceLevelPrincipal,
+		experienceLevelExecutive,
+	}
+	validEmploymentTypes = []string{
+		employmentTypeFullTime,
+		employmentTypePartTime,
+		employmentTypeContract,
+		employmentTypeFreelance,
+		employmentTypeTemporary,
+		employmentTypeInternship,
+	}
+	validLocations = []string{
+		locationCostaRica,
+		locationLATAM,
+	}
+	validWorkModes = []string{
+		workModeRemote,
+		workModeHybrid,
+		workModeOnsite,
+	}
+)
+
+// Constants for search query validation limits
+const (
+	MaxQueryLength = 100 // Maximum characters for search query
+	MinQueryLength = 2   // Minimum meaningful search length
+)
+
 // Data Transfer Objects (DTOs) for the job API layer.
 // This file contains request/response structures used for HTTP API communication.
 // These models define the external API contract and handle JSON serialization/deserialization.
@@ -92,25 +157,39 @@ func (req *SearchRequest) Validate() error {
 	var errors []string
 
 	// Validate query is not empty or just whitespace
-	if strings.TrimSpace(req.Query) == "" {
+	trimmedQuery := strings.TrimSpace(req.Query)
+	if trimmedQuery == "" {
 		errors = append(errors, "search query cannot be empty")
+	} else {
+		// Validate query length
+		if len(trimmedQuery) < MinQueryLength {
+			errors = append(errors, fmt.Sprintf("search query must be at least %d characters", MinQueryLength))
+		}
+		if len(trimmedQuery) > MaxQueryLength {
+			errors = append(errors, fmt.Sprintf("search query cannot exceed %d characters", MaxQueryLength))
+		}
+
+		// Validate for potentially malicious patterns
+		if containsSuspiciousPatterns(trimmedQuery) {
+			errors = append(errors, "search query contains invalid characters")
+		}
 	}
 
 	// Validate enum fields
 	if req.ExperienceLevel != "" && !slices.Contains(validExperienceLevels, req.ExperienceLevel) {
-		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "experience_level"))
+		errors = append(errors, "invalid value for field: 'experience_level'")
 	}
 
 	if req.EmploymentType != "" && !slices.Contains(validEmploymentTypes, req.EmploymentType) {
-		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "employment_type"))
+		errors = append(errors, "invalid value for field: 'employment_type'")
 	}
 
 	if req.Location != "" && !slices.Contains(validLocations, req.Location) {
-		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "location"))
+		errors = append(errors, "invalid value for field: 'location'")
 	}
 
 	if req.WorkMode != "" && !slices.Contains(validWorkModes, req.WorkMode) {
-		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "work_mode"))
+		errors = append(errors, "invalid value for field: 'work_mode'")
 	}
 
 	// Validate date range - both must be provided if one is provided
@@ -150,6 +229,8 @@ func (req *SearchRequest) Validate() error {
 type JobResponse struct {
 	ID              int                  `json:"job_id"`
 	CompanyID       int                  `json:"company_id"`
+	CompanyName     string               `json:"company_name"`
+	CompanyLogoURL  string               `json:"company_logo_url"`
 	Title           string               `json:"title"`
 	Description     string               `json:"description"`
 	ExperienceLevel string               `json:"experience_level"`

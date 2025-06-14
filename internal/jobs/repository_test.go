@@ -705,6 +705,7 @@ func TestRepository_SearchJobsWithCount(t *testing.T) {
 				EmploymentType:  stringPtr("Full-Time"),
 				Location:        stringPtr("San Francisco"),
 				WorkMode:        stringPtr("Remote"),
+				Company:         stringPtr("StartupXYZ"),
 				DateFrom:        &dateFrom,
 				DateTo:          &dateTo,
 			},
@@ -712,10 +713,10 @@ func TestRepository_SearchJobsWithCount(t *testing.T) {
 				t.Helper()
 				expectedQuery := searchJobsWithCountBaseQuery +
 					" AND j.experience_level = $2 AND j.employment_type = $3 AND j.location = $4 AND j.work_mode = $5" +
-					" AND j.created_at >= $6 AND j.created_at <= $7" +
-					" ORDER BY j.created_at DESC LIMIT $8 OFFSET $9"
+					" AND LOWER(c.name) LIKE LOWER($6) AND j.created_at >= $7 AND j.created_at <= $8" +
+					" ORDER BY j.created_at DESC LIMIT $9 OFFSET $10"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-					WithArgs("developer", "Senior", "Full-Time", "San Francisco", "Remote", dateFrom, dateTo, 5, 10).
+					WithArgs("developer", "Senior", "Full-Time", "San Francisco", "Remote", "%StartupXYZ%", dateFrom, dateTo, 5, 10).
 					WillReturnRows(pgxmock.NewRows([]string{
 						"id", "company_id", "title", "description", "experience_level", "employment_type",
 						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
@@ -789,126 +790,42 @@ func TestRepository_SearchJobsWithCount(t *testing.T) {
 			},
 		},
 		{
-			name: "validation error - empty query",
+			name: "empty query handled by database",
 			params: SearchParams{
 				Query:  "",
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
+			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
-				// No mock setup needed as validation should fail before database call
+				expectedQuery := searchJobsWithCountBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
+				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
+					WithArgs("", 10, 0).
+					WillReturnRows(pgxmock.NewRows([]string{
+						"id", "company_id", "title", "description", "experience_level", "employment_type",
+						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
+						"company_name", "company_logo_url", "total_count",
+					}))
 			},
 			checkResults: func(t *testing.T, jobs []*JobWithCompany, total int, err error) {
 				t.Helper()
-				require.Error(t, err)
-				assert.Nil(t, jobs)
+				require.NoError(t, err)
+				assert.Empty(t, jobs)
 				assert.Equal(t, 0, total)
-				assert.Contains(t, err.Error(), "invalid search parameters")
 			},
 		},
 		{
-			name: "validation error - whitespace only query",
+			name: "whitespace query trimmed and handled",
 			params: SearchParams{
 				Query:  "   ",
 				Limit:  10,
 				Offset: 0,
 			},
-			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
-				t.Helper()
-				// No mock setup needed as validation should fail before database call
-			},
-			checkResults: func(t *testing.T, jobs []*JobWithCompany, total int, err error) {
-				t.Helper()
-				require.Error(t, err)
-				assert.Nil(t, jobs)
-				assert.Equal(t, 0, total)
-				assert.Contains(t, err.Error(), "invalid search parameters")
-			},
-		},
-		{
-			name: "validation error - invalid date range",
-			params: SearchParams{
-				Query:    "test",
-				Limit:    10,
-				Offset:   0,
-				DateFrom: &dateTo,   // Later date
-				DateTo:   &dateFrom, // Earlier date
-			},
-			mockSetup: func(_ pgxmock.PgxPoolIface, _ SearchParams) {
-				t.Helper()
-				// No mock setup needed as validation should fail before database call
-			},
-			checkResults: func(t *testing.T, jobs []*JobWithCompany, total int, err error) {
-				t.Helper()
-				require.Error(t, err)
-				assert.Nil(t, jobs)
-				assert.Equal(t, 0, total)
-				assert.Contains(t, err.Error(), "invalid search parameters")
-			},
-		},
-		{
-			name: "default limit applied when zero",
-			params: SearchParams{
-				Query:  "test query",
-				Limit:  0, // Should default to 20
-				Offset: 0,
-			},
 			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
 				t.Helper()
 				expectedQuery := searchJobsWithCountBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
 				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-					WithArgs("test query", 20, 0). // Should use default limit of 20
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-						"company_name", "company_logo_url", "total_count",
-					}))
-			},
-			checkResults: func(t *testing.T, jobs []*JobWithCompany, total int, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Empty(t, jobs)
-				assert.Equal(t, 0, total)
-			},
-		},
-		{
-			name: "max limit enforced when exceeded",
-			params: SearchParams{
-				Query:  "test query",
-				Limit:  150, // Should be capped to 100
-				Offset: 0,
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
-				t.Helper()
-				expectedQuery := searchJobsWithCountBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
-				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-					WithArgs("test query", 100, 0). // Should use max limit of 100
-					WillReturnRows(pgxmock.NewRows([]string{
-						"id", "company_id", "title", "description", "experience_level", "employment_type",
-						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
-						"company_name", "company_logo_url", "total_count",
-					}))
-			},
-			checkResults: func(t *testing.T, jobs []*JobWithCompany, total int, err error) {
-				t.Helper()
-				require.NoError(t, err)
-				assert.Empty(t, jobs)
-				assert.Equal(t, 0, total)
-			},
-		},
-		{
-			name: "negative offset corrected to zero",
-			params: SearchParams{
-				Query:  "test query",
-				Limit:  10,
-				Offset: -5, // Should be corrected to 0
-			},
-			mockSetup: func(mock pgxmock.PgxPoolIface, _ SearchParams) {
-				t.Helper()
-				expectedQuery := searchJobsWithCountBaseQuery + " ORDER BY j.created_at DESC LIMIT $2 OFFSET $3"
-				mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-					WithArgs("test query", 10, 0). // Should use offset of 0
+					WithArgs("", 10, 0). // Query should be trimmed to empty string
 					WillReturnRows(pgxmock.NewRows([]string{
 						"id", "company_id", "title", "description", "experience_level", "employment_type",
 						"location", "work_mode", "application_url", "is_active", "signature", "created_at", "updated_at",
