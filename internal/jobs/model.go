@@ -1,6 +1,8 @@
 package jobs
 
-import "time"
+import (
+	"time"
+)
 
 // Database entities and repository-level structs for job management.
 // This file contains the core database models and search parameters used by the repository layer.
@@ -42,4 +44,14 @@ type SearchParams struct {
 	Company         *string
 	DateFrom        *time.Time
 	DateTo          *time.Time
+}
+
+// GetLimit returns the limit for pagination to satisfy httpservice.SearchParams interface
+func (sp *SearchParams) GetLimit() int {
+	return sp.Limit
+}
+
+// GetOffset returns the offset for pagination to satisfy httpservice.SearchParams interface
+func (sp *SearchParams) GetOffset() int {
+	return sp.Offset
 }

@@ -29,11 +29,6 @@ func NewRepository(db Database) *Repository {
 
 // SearchJobsWithCount performs a full-text search and returns both results and total count
 func (r *Repository) SearchJobsWithCount(ctx context.Context, params *SearchParams) ([]*JobWithCompany, int, error) {
-	// Validate parameters
-	if err := validateSearchParams(params); err != nil {
-		return nil, 0, fmt.Errorf("invalid search parameters: %w", err)
-	}
-
 	// Trim whitespace from query
 	params.Query = strings.TrimSpace(params.Query)
 

@@ -2,7 +2,11 @@ package jobs
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
 )
 
 // Data Transfer Objects (DTOs) for the job API layer.
@@ -25,11 +29,20 @@ type SearchRequest struct {
 }
 
 // ToSearchParams converts a SearchRequest to SearchParams
-func (req *SearchRequest) ToSearchParams() (*SearchParams, error) {
+func (req *SearchRequest) ToSearchParams() (httpservice.SearchParams, error) {
+	// Set defaults for limit and offset
+	limit := req.Limit
+	if limit <= 0 {
+		limit = DefaultLimit
+	}
+	limit = min(limit, MaxLimit) // Max limit to prevent abuse
+
+	offset := max(req.Offset, 0) // Min offset to prevent negative pagination
+
 	searchParams := &SearchParams{
 		Query:  req.Query,
-		Limit:  req.Limit,
-		Offset: req.Offset,
+		Limit:  limit,
+		Offset: offset,
 	}
 
 	// Set optional filters
@@ -53,17 +66,84 @@ func (req *SearchRequest) ToSearchParams() (*SearchParams, error) {
 	if req.DateFrom != "" && req.DateTo != "" {
 		dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
 		if err != nil {
-			return nil, fmt.Errorf("invalid date_from format: %w", err)
+			return nil, &httpservice.ConversionError{
+				Field: "date_from",
+				Value: req.DateFrom,
+				Err:   err,
+			}
 		}
 		dateTo, err := time.Parse("2006-01-02", req.DateTo)
 		if err != nil {
-			return nil, fmt.Errorf("invalid date_to format: %w", err)
+			return nil, &httpservice.ConversionError{
+				Field: "date_to",
+				Value: req.DateTo,
+				Err:   err,
+			}
 		}
 		searchParams.DateFrom = &dateFrom
 		searchParams.DateTo = &dateTo
 	}
 
 	return searchParams, nil
+}
+
+// Validate validates the search request parameters
+func (req *SearchRequest) Validate() error {
+	var errors []string
+
+	// Validate query is not empty or just whitespace
+	if strings.TrimSpace(req.Query) == "" {
+		errors = append(errors, "search query cannot be empty")
+	}
+
+	// Validate enum fields
+	if req.ExperienceLevel != "" && !slices.Contains(validExperienceLevels, req.ExperienceLevel) {
+		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "experience_level"))
+	}
+
+	if req.EmploymentType != "" && !slices.Contains(validEmploymentTypes, req.EmploymentType) {
+		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "employment_type"))
+	}
+
+	if req.Location != "" && !slices.Contains(validLocations, req.Location) {
+		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "location"))
+	}
+
+	if req.WorkMode != "" && !slices.Contains(validWorkModes, req.WorkMode) {
+		errors = append(errors, fmt.Sprintf("validation failed for field: %s", "work_mode"))
+	}
+
+	// Validate date range - both must be provided if one is provided
+	hasDateFrom := req.DateFrom != ""
+	hasDateTo := req.DateTo != ""
+
+	if hasDateFrom != hasDateTo {
+		errors = append(errors, "both date_from and date_to must be provided together")
+	}
+
+	// Validate date format if provided
+	if hasDateFrom && hasDateTo {
+		dateFrom, dateFromErr := time.Parse("2006-01-02", req.DateFrom)
+		if dateFromErr != nil {
+			errors = append(errors, "date_from must be in YYYY-MM-DD format")
+		}
+
+		dateTo, dateToErr := time.Parse("2006-01-02", req.DateTo)
+		if dateToErr != nil {
+			errors = append(errors, "date_to must be in YYYY-MM-DD format")
+		}
+
+		// Check date range if both dates are valid
+		if dateFromErr == nil && dateToErr == nil && dateFrom.After(dateTo) {
+			errors = append(errors, "date_from cannot be after date_to")
+		}
+	}
+
+	if len(errors) > 0 {
+		return &httpservice.ValidationError{Errors: errors}
+	}
+
+	return nil
 }
 
 // JobResponse represents the API response for a single job
@@ -112,4 +192,22 @@ type ErrorDetails struct {
 	Code    string   `json:"code"`
 	Message string   `json:"message"`
 	Details []string `json:"details,omitempty"`
+}
+
+// JobResponseList is a slice of JobResponse that implements httpservice.SearchResult interface
+type JobResponseList []*JobResponse
+
+// GetItems returns the job responses as []any to satisfy httpservice.SearchResult interface
+func (jrl JobResponseList) GetItems() []any {
+	items := make([]any, len(jrl))
+	for i, item := range jrl {
+		items[i] = item
+	}
+	return items
+}
+
+// GetTotal returns the length of the slice to satisfy httpservice.SearchResult interface
+// Note: This returns the count of items in this slice, not the total search results count
+func (jrl JobResponseList) GetTotal() int {
+	return len(jrl)
 }

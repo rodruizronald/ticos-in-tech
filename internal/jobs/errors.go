@@ -40,30 +40,3 @@ func IsDuplicate(err error) bool {
 	var duplicateErr *DuplicateError
 	return errors.As(err, &duplicateErr)
 }
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	Field string
-}
-
-// Error implements the error interface
-func (e *ValidationError) Error() string {
-	return fmt.Sprintf("validation failed for field: %s", e.Field)
-}
-
-// IsValidation checks if an error is a validation error
-func IsValidation(err error) bool {
-	var validationErr *ValidationError
-	return errors.As(err, &validationErr)
-}
-
-// HandlerError represents an error with HTTP status code and response
-type HandlerError struct {
-	StatusCode    int
-	ErrorResponse ErrorResponse
-}
-
-// Error implements the error interface
-func (e *HandlerError) Error() string {
-	return e.ErrorResponse.Error.Message
-}

@@ -116,10 +116,8 @@ const (
 	JobsRoute = "/jobs"
 )
 
-// Constants for error codes and messages
+// Constants for pagination defaults and limits
 const (
-	ErrCodeInternalError   = "INTERNAL_ERROR"
-	ErrCodeInvalidRequest  = "INVALID_REQUEST"
-	ErrCodeValidationError = "VALIDATION_ERROR"
-	ErrCodeSearchError     = "SEARCH_ERROR"
+	DefaultLimit = 20
+	MaxLimit     = 100
 )
