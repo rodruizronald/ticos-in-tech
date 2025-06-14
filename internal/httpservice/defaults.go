@@ -1,6 +1,10 @@
+// Package httpservice provides a generic HTTP service framework for implementing search endpoints.
+// It includes default implementations for request parsing, response building, and error handling
+// that can be used across different domain services in the application.
 package httpservice
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -20,10 +24,12 @@ type DefaultRequestParser[T SearchRequest] struct {
 	createRequest func() T // Factory function to create new request instance
 }
 
+// NewDefaultRequestParser - CONVENIENCE CONSTRUCTOR with default implementation
 func NewDefaultRequestParser[T SearchRequest](createRequest func() T) RequestParser[T] {
 	return &DefaultRequestParser[T]{createRequest: createRequest}
 }
 
+// ParseSearchRequest - parses incoming request from Gin context
 func (p *DefaultRequestParser[T]) ParseSearchRequest(c *gin.Context) (T, error) {
 	req := p.createRequest()
 	if err := c.ShouldBindQuery(req); err != nil {
@@ -36,11 +42,14 @@ func (p *DefaultRequestParser[T]) ParseSearchRequest(c *gin.Context) (T, error) 
 // DefaultResponseBuilder - GENERIC IMPLEMENTATION that consumers can use
 type DefaultResponseBuilder[TResult SearchResult, TParams SearchParams] struct{}
 
+// NewDefaultResponseBuilder - CONVENIENCE CONSTRUCTOR with default implementation
 func NewDefaultResponseBuilder[TResult SearchResult, TParams SearchParams]() ResponseBuilder[TResult, TParams] {
 	return &DefaultResponseBuilder[TResult, TParams]{}
 }
 
-func (b *DefaultResponseBuilder[TResult, TParams]) BuildSearchResponse(results TResult, total int, params TParams) SearchResponse {
+// BuildSearchResponse - GENERIC IMPLEMENTATION that consumers can use
+func (b *DefaultResponseBuilder[TResult, TParams]) BuildSearchResponse(results TResult, total int,
+	params TParams) SearchResponse {
 	hasMore := params.GetOffset()+len(results.GetItems()) < total
 
 	return SearchResponse{
@@ -54,46 +63,47 @@ func (b *DefaultResponseBuilder[TResult, TParams]) BuildSearchResponse(results T
 	}
 }
 
+// BuildErrorResponse - GENERIC IMPLEMENTATION that consumers can use
 func (b *DefaultResponseBuilder[TResult, TParams]) BuildErrorResponse(err error) (int, ErrorResponse) {
-	switch e := err.(type) {
-	case *RequestParseError:
-		// BAD REQUEST - client error
-		return http.StatusBadRequest, ErrorResponse{
-			Error: ErrorDetails{
-				Code:    ErrCodeInvalidRequest,
-				Message: "Invalid request parameters",
-				Details: []string{e.Error()},
-			},
-		}
-	case *ValidationError:
-		// BAD REQUEST - client error
+	var e *RequestParseError
+	var e1 *ValidationError
+	var e2 *SearchError
+	var e3 *ConversionError
+	switch {
+	case errors.As(err, &e):
+		return http.StatusBadRequest,
+			ErrorResponse{
+				Error: ErrorDetails{
+					Code:    ErrCodeInvalidRequest,
+					Message: "Invalid request parameters",
+					Details: []string{e.Error()},
+				},
+			}
+	case errors.As(err, &e1):
 		return http.StatusBadRequest, ErrorResponse{
 			Error: ErrorDetails{
 				Code:    ErrCodeValidationError,
 				Message: "Invalid search parameters",
-				Details: e.Errors,
+				Details: e1.Errors,
 			},
 		}
-	case *SearchError:
-		// INTERNAL SERVER ERROR - server/infrastructure error
+	case errors.As(err, &e2):
 		return http.StatusInternalServerError, ErrorResponse{
 			Error: ErrorDetails{
 				Code:    ErrCodeSearchError,
-				Message: fmt.Sprintf("Failed to %s", e.Operation),
-				Details: []string{e.Error()},
+				Message: fmt.Sprintf("Failed to %s", e2.Operation),
+				Details: []string{e2.Error()},
 			},
 		}
-	case *ConversionError:
-		// BAD REQUEST - client sent data that can't be converted
+	case errors.As(err, &e3):
 		return http.StatusBadRequest, ErrorResponse{
 			Error: ErrorDetails{
 				Code:    ErrCodeValidationError,
 				Message: "Invalid search parameters",
-				Details: []string{e.Error()},
+				Details: []string{e3.Error()},
 			},
 		}
 	default:
-		// INTERNAL SERVER ERROR - unexpected error
 		return http.StatusInternalServerError, ErrorResponse{
 			Error: ErrorDetails{
 				Code:    ErrCodeInternalError,

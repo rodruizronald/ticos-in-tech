@@ -156,73 +156,90 @@ func (req *SearchRequest) ToSearchParams() (httpservice.SearchParams, error) {
 func (req *SearchRequest) Validate() error {
 	var errors []string
 
-	// Validate query is not empty or just whitespace
-	trimmedQuery := strings.TrimSpace(req.Query)
-	if trimmedQuery == "" {
-		errors = append(errors, "search query cannot be empty")
-	} else {
-		// Validate query length
-		if len(trimmedQuery) < MinQueryLength {
-			errors = append(errors, fmt.Sprintf("search query must be at least %d characters", MinQueryLength))
-		}
-		if len(trimmedQuery) > MaxQueryLength {
-			errors = append(errors, fmt.Sprintf("search query cannot exceed %d characters", MaxQueryLength))
-		}
-
-		// Validate for potentially malicious patterns
-		if containsSuspiciousPatterns(trimmedQuery) {
-			errors = append(errors, "search query contains invalid characters")
-		}
-	}
+	// Validate query
+	req.validateQuery(&errors)
 
 	// Validate enum fields
-	if req.ExperienceLevel != "" && !slices.Contains(validExperienceLevels, req.ExperienceLevel) {
-		errors = append(errors, "invalid value for field: 'experience_level'")
-	}
+	req.validateEnumFields(&errors)
 
-	if req.EmploymentType != "" && !slices.Contains(validEmploymentTypes, req.EmploymentType) {
-		errors = append(errors, "invalid value for field: 'employment_type'")
-	}
-
-	if req.Location != "" && !slices.Contains(validLocations, req.Location) {
-		errors = append(errors, "invalid value for field: 'location'")
-	}
-
-	if req.WorkMode != "" && !slices.Contains(validWorkModes, req.WorkMode) {
-		errors = append(errors, "invalid value for field: 'work_mode'")
-	}
-
-	// Validate date range - both must be provided if one is provided
-	hasDateFrom := req.DateFrom != ""
-	hasDateTo := req.DateTo != ""
-
-	if hasDateFrom != hasDateTo {
-		errors = append(errors, "both date_from and date_to must be provided together")
-	}
-
-	// Validate date format if provided
-	if hasDateFrom && hasDateTo {
-		dateFrom, dateFromErr := time.Parse("2006-01-02", req.DateFrom)
-		if dateFromErr != nil {
-			errors = append(errors, "date_from must be in YYYY-MM-DD format")
-		}
-
-		dateTo, dateToErr := time.Parse("2006-01-02", req.DateTo)
-		if dateToErr != nil {
-			errors = append(errors, "date_to must be in YYYY-MM-DD format")
-		}
-
-		// Check date range if both dates are valid
-		if dateFromErr == nil && dateToErr == nil && dateFrom.After(dateTo) {
-			errors = append(errors, "date_from cannot be after date_to")
-		}
-	}
+	// Validate date range
+	req.validateDateRange(&errors)
 
 	if len(errors) > 0 {
 		return &httpservice.ValidationError{Errors: errors}
 	}
 
 	return nil
+}
+
+// validateQuery validates the search query parameter
+func (req *SearchRequest) validateQuery(errors *[]string) {
+	trimmedQuery := strings.TrimSpace(req.Query)
+	if trimmedQuery == "" {
+		*errors = append(*errors, "search query cannot be empty")
+		return
+	}
+
+	// Validate query length
+	if len(trimmedQuery) < MinQueryLength {
+		*errors = append(*errors, fmt.Sprintf("search query must be at least %d characters", MinQueryLength))
+	}
+	if len(trimmedQuery) > MaxQueryLength {
+		*errors = append(*errors, fmt.Sprintf("search query cannot exceed %d characters", MaxQueryLength))
+	}
+
+	// Validate for potentially malicious patterns
+	if containsSuspiciousPatterns(trimmedQuery) {
+		*errors = append(*errors, "search query contains invalid characters")
+	}
+}
+
+// validateEnumFields validates enum field values
+func (req *SearchRequest) validateEnumFields(errors *[]string) {
+	if req.ExperienceLevel != "" && !slices.Contains(validExperienceLevels, req.ExperienceLevel) {
+		*errors = append(*errors, "invalid value for field: 'experience_level'")
+	}
+
+	if req.EmploymentType != "" && !slices.Contains(validEmploymentTypes, req.EmploymentType) {
+		*errors = append(*errors, "invalid value for field: 'employment_type'")
+	}
+
+	if req.Location != "" && !slices.Contains(validLocations, req.Location) {
+		*errors = append(*errors, "invalid value for field: 'location'")
+	}
+
+	if req.WorkMode != "" && !slices.Contains(validWorkModes, req.WorkMode) {
+		*errors = append(*errors, "invalid value for field: 'work_mode'")
+	}
+}
+
+// validateDateRange validates date range parameters
+func (req *SearchRequest) validateDateRange(errors *[]string) {
+	hasDateFrom := req.DateFrom != ""
+	hasDateTo := req.DateTo != ""
+
+	if hasDateFrom != hasDateTo {
+		*errors = append(*errors, "both date_from and date_to must be provided together")
+		return
+	}
+
+	// Validate date format if provided
+	if hasDateFrom && hasDateTo {
+		dateFrom, dateFromErr := time.Parse("2006-01-02", req.DateFrom)
+		if dateFromErr != nil {
+			*errors = append(*errors, "date_from must be in YYYY-MM-DD format")
+		}
+
+		dateTo, dateToErr := time.Parse("2006-01-02", req.DateTo)
+		if dateToErr != nil {
+			*errors = append(*errors, "date_to must be in YYYY-MM-DD format")
+		}
+
+		// Check date range if both dates are valid
+		if dateFromErr == nil && dateToErr == nil && dateFrom.After(dateTo) {
+			*errors = append(*errors, "date_from cannot be after date_to")
+		}
+	}
 }
 
 // JobResponse represents the API response for a single job

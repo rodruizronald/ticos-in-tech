@@ -23,7 +23,8 @@ func containsSuspiciousPatterns(query string) bool {
 
 	// Check for SQL-like patterns (even though we use parameterized queries)
 	suspiciousPatterns := []string{
-		"--", "/*", "*/", "xp_", "sp_", "exec", "execute", "union", "select", "insert", "update", "delete", "drop", "create", "alter",
+		"--", "/*", "*/", "xp_", "sp_", "exec", "execute", "union", "select",
+		"insert", "update", "delete", "drop", "create", "alter",
 	}
 
 	lowerQuery := strings.ToLower(query)

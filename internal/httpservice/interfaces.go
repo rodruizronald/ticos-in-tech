@@ -6,17 +6,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Core interfaces that define the contract
+// SearchRequest represents the incoming request from the client
 type SearchRequest interface {
 	Validate() error
 	ToSearchParams() (SearchParams, error)
 }
 
+// SearchParams represents the parameters for a search operation
 type SearchParams interface {
 	GetLimit() int
 	GetOffset() int
 }
 
+// SearchResult represents the result of a search operation
 type SearchResult interface {
 	GetItems() []any
 	GetTotal() int

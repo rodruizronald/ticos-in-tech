@@ -13,6 +13,7 @@ type SearchHandler[TRequest SearchRequest, TParams SearchParams, TResult SearchR
 	responseBuilder ResponseBuilder[TResult, TParams]
 }
 
+// NewSearchHandler creates a new search handler using the provided parser, service, and response builder
 func NewSearchHandler[TRequest SearchRequest, TParams SearchParams, TResult SearchResult](
 	parser RequestParser[TRequest],
 	service SearchService[TParams, TResult],
@@ -37,6 +38,7 @@ func NewSearchHandlerWithDefaults[TRequest SearchRequest, TParams SearchParams, 
 	)
 }
 
+// HandleSearch handles HTTP requests for job search operations
 func (h *SearchHandler[TRequest, TParams, TResult]) HandleSearch(c *gin.Context) {
 	// Parse request using generic parser
 	req, err := h.parser.ParseSearchRequest(c)
@@ -47,7 +49,7 @@ func (h *SearchHandler[TRequest, TParams, TResult]) HandleSearch(c *gin.Context)
 	}
 
 	// Validate request
-	if err := req.Validate(); err != nil {
+	if err = req.Validate(); err != nil {
 		statusCode, errorResp := h.responseBuilder.BuildErrorResponse(err)
 		c.JSON(statusCode, errorResp)
 		return

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
 	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )

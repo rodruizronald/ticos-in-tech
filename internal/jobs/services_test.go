@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
-	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
+	"github.com/rodruizronald/ticos-in-tech/internal/jobtech"
 )
 
 func TestJobSearchService_ExecuteSearch(t *testing.T) {

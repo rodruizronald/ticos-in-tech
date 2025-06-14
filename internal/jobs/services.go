@@ -6,14 +6,17 @@ import (
 	"github.com/rodruizronald/ticos-in-tech/internal/httpservice"
 )
 
+// SearchService implements the httpservice.SearchService interface
 type SearchService struct {
 	repos DataRepository
 }
 
+// NewSearchService creates a new instance of SearchService
 func NewSearchService(repos DataRepository) httpservice.SearchService[*SearchParams, JobResponseList] {
 	return &SearchService{repos: repos}
 }
 
+// ExecuteSearch implements the SearchService interface to execute a search
 func (s *SearchService) ExecuteSearch(ctx context.Context, params *SearchParams) (JobResponseList, int, error) {
 	// Your existing business logic
 	jobs, total, err := s.repos.SearchJobsWithCount(ctx, params)
