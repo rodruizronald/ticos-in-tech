@@ -1,8 +1,6 @@
 # Python env
 venv/
 __pycache__/
-
-scripts/scraper/jobs/
 **/data/
 
 # Node.js dependencies
