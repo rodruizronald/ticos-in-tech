@@ -1,9 +1,13 @@
+# Python env
 venv/
 __pycache__/
+
 scripts/scraper/jobs/
 **/data/
 
-/web/node_modules
+# Node.js dependencies
+node_modules/
+**/node_modules/
 
 # Environment variables
 .env
