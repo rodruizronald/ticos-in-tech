@@ -18,17 +18,32 @@ load_dotenv(root_dir / ".env")
 
 # Configuration
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
-OUTPUT_DIR = "jobs"  # Directory to store results
 MODEL = "o4-mini"  # OpenAI model to use
-PROMPT_FILE = "prompts/job_technologies.md"  # File containing the prompt template
-LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+# Define input directory path and input file name
+INPUT_DIR = Path("data/input")
+PROMPT_FILE = (
+    INPUT_DIR / "prompts/job_description.md"
+)  # File containing the prompt template
+
+# Define global output directory path
+OUTPUT_DIR = Path("data/output")
+timestamp = datetime.now().strftime("%Y%m%d")
+PIPELINE_INPUT_DIR = OUTPUT_DIR / timestamp / "pipeline_stage_2"
+PIPELINE_OUTPUT_DIR = OUTPUT_DIR / timestamp / "pipeline_stage_3"
+PIPELINE_OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
+INPUT_FILE = "jobs_stage_2.json"  # JSON file with job eligibility data
+OUTPUT_FILE = "jobs_stage_3.json"  # JSON file with job descriptions
 
 # Configure logger
+LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 logger.remove()  # Remove default handler
 logger.add(sys.stderr, level=LOG_LEVEL)  # Add stderr handler with desired log level
 logger.add(
-    f"{OUTPUT_DIR}/job_technologies_scraper.log", rotation="10 MB", level=LOG_LEVEL
+    f"{PIPELINE_OUTPUT_DIR}/logs.log",
+    rotation="10 MB",
+    level=LOG_LEVEL,
 )  # Add file handler
 
 # Initialize OpenAI client
@@ -105,15 +120,18 @@ def read_prompt_template():
         exit(1)
 
 
-async def extract_job_technologies(job_url: str, selectors: list[str]):
-    """Extract technologies from a job posting URL."""
-    logger.info(f"Extracting technologies for job at {job_url}")
+async def process_job(job_url: str, selectors: list[str], company_name: str):
+    """Process a single job URL to extract job description."""
+    logger.info(f"Processing job at {job_url} for {company_name}...")
 
     # Extract HTML content
     html_content = await extract_html_content(job_url, selectors)
     if not html_content:
-        logger.warning(f"Could not fetch content for job {job_url}")
-        return None
+        logger.warning(f"Could not fetch content for job at {job_url}")
+        return {
+            "description": None,
+            "error": "Failed to fetch HTML content",
+        }
 
     # Read prompt template and fill it with HTML content
     prompt_template = read_prompt_template()
@@ -123,13 +141,13 @@ async def extract_job_technologies(job_url: str, selectors: list[str]):
 
     # Send to OpenAI
     try:
-        logger.info(f"Sending content to OpenAI for job {job_url}...")
+        logger.info(f"Sending content to OpenAI for job at {job_url}...")
         response = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {
                     "role": "system",
-                    "content": "You extract technologies from job postings.",
+                    "content": "You extract job descriptions from HTML content.",
                 },
                 {"role": "user", "content": filled_prompt},
             ],
@@ -138,112 +156,107 @@ async def extract_job_technologies(job_url: str, selectors: list[str]):
 
         # Parse response
         response_text = response.choices[0].message.content
-        tech_data = json.loads(response_text)
+        description_data = json.loads(response_text)
 
-        logger.success(f"Successfully extracted technologies for job {job_url}")
-        return tech_data.get("technologies", [])
+        # Add metadata
+        result = {
+            "description": description_data.get("description"),
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        logger.success(f"Successfully processed job at {job_url}")
+        return result
 
     except Exception as e:
-        logger.error(f"Error extracting technologies for job {job_url}: {str(e)}")
-        return None
+        logger.error(f"Error processing job at {job_url} with OpenAI: {str(e)}")
+        return {
+            "description": None,
+            "error": str(e),
+        }
 
 
 async def main():
     """Main function to process all jobs."""
-    # Get today's date for the input directory
-    today = datetime.now().strftime("%Y%m%d")
-    input_dir = Path(OUTPUT_DIR) / today
-
-    if not input_dir.exists():
-        logger.error(f"Input directory {input_dir} does not exist")
+    # Check if prompt template file exists
+    if not Path(PROMPT_FILE).exists():
+        logger.error(f"Prompt template file '{PROMPT_FILE}' not found")
         return
 
-    input_file = input_dir / "jobs_with_descriptions.json"
-    if not input_file.exists():
-        logger.error(f"Input file {input_file} does not exist")
+    # Check if input directory exists
+    input_file_path = PIPELINE_INPUT_DIR / INPUT_FILE
+    if not input_file_path.exists():
+        logger.error(f"Input file {input_file_path} does not exist")
         return
 
     # Read input file with jobs data
     try:
-        with open(input_file, "r") as f:
+        with open(input_file_path, "r") as f:
             data = json.load(f)
     except Exception as e:
         logger.error(f"Error reading input file: {str(e)}")
         return
 
     # Process each job
-    final_jobs = []
+    processed_jobs = []
+    total_jobs_processed = 0
+    jobs_with_descriptions = 0
 
     for job in data.get("jobs", []):
-        job_url = job.get("application_url")
-        is_job_new = job.get("new", True)
+        job_url = job.get("application_url", "")
+        job_title = job.get("title", "")
+        company_name = job.get("company", "")
+        job_description_selector = job.get("job_description_selector", [])
+
+        # Only process eligible jobs
+        if not job.get("eligible", False):
+            logger.debug(f"Skipping ineligible job: {job_title}")
+            processed_jobs.append(job)
+            continue
 
         if not job_url:
-            logger.warning(f"Job missing application_url, skipping: {job.get('title')}")
+            logger.warning(f"Job missing URL, skipping: {job_title}")
+            processed_jobs.append(job)
             continue
 
-        # Skip technology extraction for jobs that aren't new
-        if not is_job_new:
-            logger.debug(
-                f"Job is not new, skipping technology extraction: {job.get('title')}"
-            )
-            # Create a clean job object without the excluded fields
-            clean_job = {
-                k: v
-                for k, v in job.items()
-                if k not in ["job_description_selector", "eligible", "new"]
-            }
+        logger.info(f"Processing new eligible job: {job_title} at {job_url}")
+        result = await process_job(job_url, job_description_selector, company_name)
 
-            # If the job already has technologies, keep them
-            if "technologies" not in clean_job:
-                clean_job["technologies"] = []
+        total_jobs_processed += 1
 
-            final_jobs.append(clean_job)
+        # Check if there was an error
+        if "error" in result:
+            logger.error(f"Error processing job {job_title}: {result['error']}")
+            # Add job without description
+            processed_jobs.append(job)
             continue
 
-        # Get job description selectors directly from the job object
-        selectors = job.get("job_description_selector", [])
-
-        # Extract job technologies
-        technologies = await extract_job_technologies(job_url, selectors)
-
-        if technologies:
-            # Add technologies to job data
-            job["technologies"] = technologies
-            logger.info(
-                f"Added {len(technologies)} technologies to job: {job.get('title')}"
-            )
+        if result and result["description"]:
+            jobs_with_descriptions += 1
+            # Add description to job data
+            job["description"] = result["description"]
+            logger.info(f"Added description to job: {job_title}")
         else:
-            # Add empty technologies array if extraction failed
-            job["technologies"] = []
-            logger.warning(
-                f"Failed to extract technologies for job: {job.get('title')}"
-            )
+            logger.warning(f"Failed to extract description for job: {job_title}")
 
-        # Create a clean job object without the excluded fields
-        clean_job = {
-            k: v
-            for k, v in job.items()
-            if k not in ["job_description_selector", "eligible", "new"]
-        }
-
-        # Add job to final jobs list
-        final_jobs.append(clean_job)
+        # Add job to processed jobs list (whether description was extracted or not)
+        processed_jobs.append(job)
 
         # Delay to avoid rate limiting
         await asyncio.sleep(1)
 
-    # Save final jobs data
-    output_file = input_dir / "final_jobs.json"
+    # Save results
+    output_file = PIPELINE_OUTPUT_DIR / OUTPUT_FILE
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(
-            {"jobs": final_jobs},
+            {"jobs": processed_jobs},
             f,
             indent=2,
             ensure_ascii=False,  # This will prevent Unicode escaping
         )
 
     logger.info(f"Processing complete. Results saved to {output_file}")
+    logger.info(f"Processed {total_jobs_processed} jobs")
+    logger.info(f"Jobs with descriptions: {jobs_with_descriptions}")
 
 
 if __name__ == "__main__":
@@ -252,7 +265,7 @@ if __name__ == "__main__":
         logger.error("OPENAI_API_KEY environment variable is not set")
         exit(1)
 
-    logger.info("Starting job technologies extraction process")
+    logger.info("Starting job description extraction process")
     # Run the async main function
     asyncio.run(main())
     logger.info("Process completed")

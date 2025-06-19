@@ -4,7 +4,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-import hashlib
 
 from dotenv import load_dotenv
 import openai
@@ -19,18 +18,32 @@ load_dotenv(root_dir / ".env")
 
 # Configuration
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
-OUTPUT_DIR = "jobs"  # Directory to store results
-INPUT_FILE = "companies.json"  # JSON file with company career URLs
 MODEL = "o4-mini"  # OpenAI model to use
-PROMPT_FILE = "prompts/job_title_url_parser.md"  # File containing the prompt template
-LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+# Define input directory path and input file name
+INPUT_DIR = Path("data/input")
+PROMPT_FILE = (
+    INPUT_DIR / "prompts/job_eligibility_basic_metadata.md"
+)  # File containing the prompt template
+
+# Define global output directory path
+OUTPUT_DIR = Path("data/output")
+timestamp = datetime.now().strftime("%Y%m%d")
+PIPELINE_INPUT_DIR = OUTPUT_DIR / timestamp / "pipeline_stage_1"
+PIPELINE_OUTPUT_DIR = OUTPUT_DIR / timestamp / "pipeline_stage_2"
+PIPELINE_OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
+INPUT_FILE = "jobs_stage_1.json"  # JSON file with company career URLs
+OUTPUT_FILE = "jobs_stage_2.json"  # JSON file with job eligibility data
 
 # Configure logger
+LOG_LEVEL = "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 logger.remove()  # Remove default handler
 logger.add(sys.stderr, level=LOG_LEVEL)  # Add stderr handler with desired log level
 logger.add(
-    f"{OUTPUT_DIR}/job_url_scraper.log", rotation="10 MB", level=LOG_LEVEL
+    f"{PIPELINE_OUTPUT_DIR}/logs.log",
+    rotation="10 MB",
+    level=LOG_LEVEL,
 )  # Add file handler
 
 # Initialize OpenAI client
@@ -107,18 +120,16 @@ def read_prompt_template():
         exit(1)
 
 
-async def process_company(
-    company_name: str, career_url: str, selectors: list[str] = None
-):
-    """Process a single company's career page."""
-    logger.info(f"Processing {company_name}...")
+async def process_job(job_url: str, selectors: list[str], company_name: str):
+    """Process a single job URL to extract eligibility and basic metadata."""
+    logger.info(f"Processing job at {job_url} for {company_name}...")
 
     # Extract HTML content
-    html_content = await extract_html_content(career_url, selectors)
+    html_content = await extract_html_content(job_url, selectors)
     if not html_content:
-        logger.warning(f"Could not fetch content for {company_name}")
+        logger.warning(f"Could not fetch content for job at {job_url}")
         return {
-            "jobs": [],
+            "job": {},
             "error": "Failed to fetch HTML content",
         }
 
@@ -130,13 +141,13 @@ async def process_company(
 
     # Send to OpenAI
     try:
-        logger.info(f"Sending content to OpenAI for {company_name}...")
+        logger.info(f"Sending content to OpenAI for job at {job_url}...")
         response = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {
                     "role": "system",
-                    "content": "You extract job href links from HTML content.",
+                    "content": "You extract job eligibility and basic metadata from HTML content.",
                 },
                 {"role": "user", "content": filled_prompt},
             ],
@@ -147,135 +158,108 @@ async def process_company(
         response_text = response.choices[0].message.content
         job_data = json.loads(response_text)
 
-        # Add company metadata
+        # Add metadata
         result = {
-            "jobs": job_data.get("jobs", []),
+            "job": job_data.get("job", {}),
             "timestamp": datetime.now().isoformat(),
         }
 
-        logger.success(f"Found {len(result['jobs'])} job links for {company_name}")
+        logger.success(f"Successfully processed job at {job_url}")
         return result
 
     except Exception as e:
-        logger.error(f"Error processing {company_name} with OpenAI: {str(e)}")
+        logger.error(f"Error processing job at {job_url} with OpenAI: {str(e)}")
         return {
-            "jobs": [],
+            "job": {},
             "error": str(e),
         }
 
 
-def generate_job_signature(url: str) -> str:
-    """
-    Generate a unique hash signature for a job URL.
-
-    Args:
-        url: The job URL to hash
-
-    Returns:
-        A string containing the hexadecimal hash signature
-    """
-    if not url:
-        return ""
-
-    # Create a hash of the URL
-    return hashlib.sha256(url.encode()).hexdigest()
-
-
 async def main():
-    """Main function to process all companies."""
-    # Create output directory if it doesn't exist
-    Path(OUTPUT_DIR).mkdir(exist_ok=True)
-
+    """Main function to process all jobs."""
     # Check if prompt template file exists
     if not Path(PROMPT_FILE).exists():
         logger.error(f"Prompt template file '{PROMPT_FILE}' not found")
         return
 
-    # Load past job signatures if file exists
-    past_jobs_file = Path(OUTPUT_DIR) / "past_jobs.json"
-    past_signatures = set()
-    if past_jobs_file.exists():
-        try:
-            with open(past_jobs_file, "r") as f:
-                past_jobs_data = json.load(f)
-                past_signatures = set(past_jobs_data.get("signatures", []))
-        except Exception as e:
-            logger.error(f"Error reading past jobs file: {str(e)}")
-            # Continue with empty set if file can't be read
+    # Check if input directory exists
+    input_file_path = PIPELINE_INPUT_DIR / INPUT_FILE
+    if not input_file_path.exists():
+        logger.error(f"Input file {input_file_path} does not exist")
+        return
 
-    # Read input file with company data
+    # Read input file with jobs data
     try:
-        with open(INPUT_FILE, "r") as f:
-            companies = json.load(f)
+        with open(input_file_path, "r") as f:
+            data = json.load(f)
     except Exception as e:
         logger.error(f"Error reading input file: {str(e)}")
         return
 
-    # Process each company
-    companies_jobs = {"companies": []}  # Initialize the structure for all jobs
-    new_signatures = set()  # Track new signatures to add to past_jobs.json
+    # Process each company's jobs
+    processed_jobs = []
+    total_jobs_processed = 0
+    ineligible_jobs_count = 0
 
-    # Process each company
-    for company in companies:
-        company_name = company.get("name")
-        career_url = company.get("career_url")
-        job_board_selector = company.get("html_selectors", {}).get(
-            "job_board_selector", []
+    for company_data in data["companies"]:
+        company_name = company_data["company"]
+        job_eligibility_selector = company_data.get("html_selectors", {}).get(
+            "job_eligibility_selector", []
         )
-        job_description_selector = company.get("html_selectors", {}).get(
+        job_description_selector = company_data.get("html_selectors", {}).get(
             "job_description_selector", []
         )
 
-        if not company_name or not career_url:
-            logger.warning("Skipping entry with missing name or URL")
-            continue
+        for job in company_data.get("jobs", []):
+            job_url = job.get("url", "")
+            job_title = job.get("title", "")
+            job_signature = job.get("signature", "")
 
-        result = await process_company(company_name, career_url, job_board_selector)
+            if not job_url:
+                logger.warning(f"Job missing URL, skipping: {job_title}")
+                continue
 
-        # Generate signature for each job and check if it's new
-        for job in result.get("jobs", []):
-            signature = generate_job_signature(job.get("url", ""))
-            job["signature"] = signature
-            job["new"] = signature not in past_signatures
+            logger.info(f"Processing new job: {job_title} at {job_url}")
+            result = await process_job(job_url, job_eligibility_selector, company_name)
 
-            # If this is a new signature, add it to our set of new signatures
-            if job["new"]:
-                new_signatures.add(signature)
-                logger.info(f"New job found: {job.get('title')} at {job.get('url')}")
-            else:
-                logger.debug(f"Existing job: {job.get('title')}")
+            # Check if there was an error
+            if "error" in result:
+                logger.error(f"Error processing job {job_title}: {result['error']}")
+                continue
 
-        # Add to the all_jobs structure
-        companies_jobs["companies"].append(
-            {
-                "company": company_name,
-                "job_description_selector": job_description_selector,
-                "jobs": result["jobs"],
-            }
+            if result and result["job"]:
+                total_jobs_processed += 1
+
+                # Only add the job to processed_jobs if it's eligible
+                if result["job"].get("eligible", False):
+                    result["job"]["title"] = job_title
+                    result["job"]["company"] = company_name
+                    result["job"]["application_url"] = job_url
+                    result["job"]["signature"] = job_signature
+                    result["job"]["job_description_selector"] = job_description_selector
+                    processed_jobs.append(result["job"])
+                    logger.info(f"Job {job_title} is eligible and added to results")
+                else:
+                    ineligible_jobs_count += 1
+                    logger.info(f"Job {job_title} did not meet eligibility criteria")
+
+            # Delay to avoid rate limiting
+            await asyncio.sleep(1)
+
+    # Save results
+    output_file = PIPELINE_OUTPUT_DIR / OUTPUT_FILE
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(
+            {"jobs": processed_jobs},
+            f,
+            indent=2,
+            ensure_ascii=False,  # This will prevent Unicode escaping
         )
 
-        # Delay to avoid rate limiting
-        await asyncio.sleep(1)
-
-    # Update past_jobs.json with combined signatures (past + new)
-    try:
-        updated_signatures = past_signatures.union(new_signatures)
-        with open(past_jobs_file, "w") as f:
-            json.dump({"signatures": list(updated_signatures)}, f, indent=2)
-        logger.info(f"Updated past jobs file with {len(new_signatures)} new signatures")
-    except Exception as e:
-        logger.error(f"Error updating past jobs file: {str(e)}")
-
-    # Create dated directory and save results
-    timestamp = datetime.now().strftime("%Y%m%d")
-    output_dir = Path(OUTPUT_DIR) / timestamp
-    output_dir.mkdir(exist_ok=True, parents=True)
-
-    output_file = output_dir / "companies_jobs.json"
-    with open(output_file, "w") as f:
-        json.dump(companies_jobs, f, indent=2)
-
     logger.info(f"Processing complete. Results saved to {output_file}")
+    logger.info(f"Processed {len(processed_jobs)} eligible jobs")
+    if ineligible_jobs_count > 0:
+        logger.warn(f"Ineligible jobs: {ineligible_jobs_count}")
 
 
 if __name__ == "__main__":
@@ -284,7 +268,7 @@ if __name__ == "__main__":
         logger.error("OPENAI_API_KEY environment variable is not set")
         exit(1)
 
-    logger.info("Starting job link extraction process")
+    logger.info("Starting job eligibility and basic metadata extraction process")
     # Run the async main function
     asyncio.run(main())
     logger.info("Process completed")
