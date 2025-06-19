@@ -3,6 +3,8 @@ __pycache__/
 scripts/scraper/jobs/
 **/data/
 
+web/node_modules/
+
 # Environment variables
 .env
 .env.*
